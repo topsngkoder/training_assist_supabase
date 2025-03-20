@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Бадминтон Тренировки</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Бадминтон Тренировки</h1>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="players">Игроки</button>
+            <button class="tab-btn" data-tab="trainings">Тренировки</button>
+        </div>
+
+        <div id="players-tab" class="tab-content active">
+            <div class="players-section">
+                <h2>Список игроков</h2>
+                <div class="action-buttons">
+                    <button id="add-player-btn" class="btn primary-btn">Добавить игрока</button>
+                </div>
+
+                <div class="sort-controls">
+                    <label>Сортировка:</label>
+                    <button id="sort-name-btn" class="btn sort-btn">По имени</button>
+                    <button id="sort-rating-btn" class="btn sort-btn">По рейтингу</button>
+                </div>
+
+                <div id="players-list" class="players-list">
+                    <!-- Здесь будут отображаться игроки -->
+                </div>
+            </div>
+        </div>
+
+        <div id="trainings-tab" class="tab-content">
+            <div class="trainings-section">
+                <h2>Список тренировок</h2>
+                <div class="action-buttons">
+                    <button id="add-training-btn" class="btn primary-btn">Создать тренировку</button>
+                </div>
+
+                <div id="trainings-list" class="trainings-list">
+                    <!-- Здесь будут отображаться тренировки -->
+                </div>
+            </div>
+        </div>
+
+        
+        <!-- Модальное окно для добавления/редактирования игрока -->
+        <div id="player-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn">&times;</span>
+                <h2 id="modal-title">Добавить игрока</h2>
+                <form id="player-form">
+                    <input type="hidden" id="player-index" value="">
+                    <div class="form-group">
+                        <label for="first-name">Имя:</label>
+                        <input type="text" id="first-name" name="first-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="last-name">Фамилия:</label>
+                        <input type="text" id="last-name" name="last-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="rating">Рейтинг:</label>
+                        <input type="number" id="rating" name="rating" min="0" max="1000" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="photo">Фото:</label>
+                        <input type="file" id="photo" name="photo" accept="image/*">
+                        <div id="current-photo-container" class="current-photo-container" style="display: none;">
+                            <p>Текущее фото:</p>
+                            <img id="current-photo" class="current-photo" src="" alt="Текущее фото">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn primary-btn">Сохранить</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Модальное окно для создания тренировки -->
+        <div id="training-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn">&times;</span>
+                <h2 id="training-modal-title">Создать тренировку</h2>
+                <form id="training-form">
+                    <input type="hidden" id="training-index" value="">
+                    <div class="form-group">
+                        <label for="training-location">Место проведения:</label>
+                        <input type="text" id="training-location" name="training-location" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="training-date">Дата проведения:</label>
+                        <input type="date" id="training-date" name="training-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="training-time">Время проведения:</label>
+                        <input type="time" id="training-time" name="training-time" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="training-courts">Количество кортов:</label>
+                        <input type="number" id="training-courts" name="training-courts" min="1" max="20" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Участники тренировки:</label>
+                        <div class="training-players-header">
+                            <button type="button" id="add-player-to-training-btn" class="btn secondary-btn">Создать нового игрока</button>
+                        </div>
+                        <div id="training-players-selection" class="training-players-selection">
+                            <!-- Здесь будут отображаться игроки для выбора -->
+                        </div>
+                    </div>
+                    <button type="submit" class="btn primary-btn">Сохранить</button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Импортируем Supabase JS из CDN -->
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+        window.createClient = createClient;
+    </script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>

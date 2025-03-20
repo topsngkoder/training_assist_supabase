@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тренировка по бадминтону</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="training-session.css">
+</head>
+<body>
+    <div class="container">
+        <div class="session-header">
+            <h1>Тренировка по бадминтону</h1>
+            <button id="back-to-main" class="btn secondary-btn">Вернуться к списку</button>
+        </div>
+        
+        <div class="training-info-container">
+            <div id="training-info" class="training-info">
+                <!-- Здесь будет информация о тренировке -->
+            </div>
+        </div>
+        
+        <div class="session-content">
+            <div class="courts-section">
+                <h2>Корты</h2>
+                <div id="courts-container" class="courts-container">
+                    <!-- Здесь будут отображаться корты -->
+                </div>
+            </div>
+            
+            <div class="queue-section">
+                <h2>Очередь игроков</h2>
+                <div id="players-queue" class="players-queue">
+                    <!-- Здесь будут отображаться игроки в очереди -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Импортируем Supabase JS из CDN -->
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+        window.createClient = createClient;
+    </script>
+    <script type="module" src="training-session-supabase.js"></script>
+</body>
+</html>
