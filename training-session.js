@@ -664,6 +664,111 @@ function finishGame(courtId) {
     const court = courtsData.find(c => c.id === courtId);
     if (!court) return;
 
+    // Проверяем, что на обеих сторонах есть игроки
+    if (court.side1.length === 0 || court.side2.length === 0) {
+        alert('Невозможно завершить игру: на одной из сторон нет игроков');
+        return;
+    }
+
+    // Создаем всплывающее окно для выбора победителя
+    showWinnerSelectionDialog(courtId, court);
+}
+
+// Показать диалог выбора победителя
+function showWinnerSelectionDialog(courtId, court) {
+    // Создаем модальное окно
+    const modal = document.createElement('div');
+    modal.classList.add('player-selection-modal');
+
+    const modalContent = document.createElement('div');
+    modalContent.classList.add('player-selection-modal-content');
+
+    // Заголовок модального окна
+    const modalHeader = document.createElement('div');
+    modalHeader.classList.add('player-selection-modal-header');
+    modalHeader.innerHTML = `
+        <h3>Кто победил?</h3>
+        <span class="close-modal">&times;</span>
+    `;
+
+    // Формируем имена игроков для каждой стороны
+    const side1Names = court.side1.map(player => `${player.lastName}`).join('/');
+    const side2Names = court.side2.map(player => `${player.lastName}`).join('/');
+
+    // Создаем кнопки для выбора победителя
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.classList.add('winner-buttons-container');
+    buttonsContainer.style.display = 'flex';
+    buttonsContainer.style.flexDirection = 'column';
+    buttonsContainer.style.gap = '10px';
+    buttonsContainer.style.marginTop = '20px';
+
+    const side1Button = document.createElement('button');
+    side1Button.classList.add('btn', 'winner-btn');
+    side1Button.textContent = side1Names;
+    side1Button.style.padding = '10px 20px';
+    side1Button.style.fontSize = '16px';
+
+    const side2Button = document.createElement('button');
+    side2Button.classList.add('btn', 'winner-btn');
+    side2Button.textContent = side2Names;
+    side2Button.style.padding = '10px 20px';
+    side2Button.style.fontSize = '16px';
+
+    // Добавляем обработчики для кнопок
+    side1Button.addEventListener('click', function() {
+        // Здесь можно добавить логику для записи победителя
+        console.log(`Победители: ${side1Names}`);
+
+        // Завершаем игру
+        finishGameAfterWinnerSelection(courtId);
+
+        // Закрываем модальное окно
+        document.body.removeChild(modal);
+    });
+
+    side2Button.addEventListener('click', function() {
+        // Здесь можно добавить логику для записи победителя
+        console.log(`Победители: ${side2Names}`);
+
+        // Завершаем игру
+        finishGameAfterWinnerSelection(courtId);
+
+        // Закрываем модальное окно
+        document.body.removeChild(modal);
+    });
+
+    // Добавляем кнопки в контейнер
+    buttonsContainer.appendChild(side1Button);
+    buttonsContainer.appendChild(side2Button);
+
+    // Собираем модальное окно
+    modalContent.appendChild(modalHeader);
+    modalContent.appendChild(buttonsContainer);
+    modal.appendChild(modalContent);
+
+    // Добавляем обработчик для закрытия модального окна
+    const closeBtn = modalHeader.querySelector('.close-modal');
+    closeBtn.addEventListener('click', function() {
+        document.body.removeChild(modal);
+    });
+
+    // Добавляем обработчик для закрытия модального окна при клике вне его
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+
+    // Добавляем модальное окно в DOM
+    document.body.appendChild(modal);
+}
+
+// Завершение игры после выбора победителя
+function finishGameAfterWinnerSelection(courtId) {
+    const court = courtsData.find(c => c.id === courtId);
+    if (!court) return;
+
     // Добавляем игроков в очередь
     [...court.side1, ...court.side2].forEach(player => {
         queuePlayers.push(player);
