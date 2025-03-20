@@ -320,7 +320,11 @@ function renderCourts() {
             const courtId = parseInt(this.getAttribute('data-court'));
             const side = parseInt(this.getAttribute('data-side'));
             const playerIndex = parseInt(this.getAttribute('data-index'));
-            removePlayerFromCourt(courtId, side, playerIndex);
+    // Функция сохранена для совместимости с существующим кодом,
+    // но не выполняет отображение, так как элемент скрыт
+    // Это позволяет избежать ошибок в коде, который вызывает эту функцию
+
+    // Очищаем содержимое для экономии памяти    removePlayerFromCourt(courtId, side, playerIndex);
         });
     });
 }
