@@ -18,11 +18,15 @@ let queuePlayers = [];
 let gameTimers = {}; // Объект для хранения интервалов таймеров
 let gameStartTimes = {}; // Объект для хранения времени начала игры
 
+// Режим игры
+let gameMode = 'play-once'; // По умолчанию "Играем один раз"
+
 // DOM элементы
 const trainingInfoElement = document.getElementById('training-info');
 const courtsContainer = document.getElementById('courts-container');
 const playersQueue = document.getElementById('players-queue');
 const backToMainBtn = document.getElementById('back-to-main');
+const gameModeSelect = document.getElementById('game-mode');
 
 // Создаем дефолтное изображение
 function createDefaultAvatar() {
@@ -720,8 +724,8 @@ function showWinnerSelectionDialog(courtId, court) {
         // Здесь можно добавить логику для записи победителя
         console.log(`Победители: ${side1Names}`);
 
-        // Завершаем игру
-        finishGameAfterWinnerSelection(courtId);
+        // Завершаем игру, указывая сторону 1 как победителя
+        finishGameAfterWinnerSelection(courtId, 1);
 
         // Закрываем модальное окно
         document.body.removeChild(modal);
@@ -731,8 +735,8 @@ function showWinnerSelectionDialog(courtId, court) {
         // Здесь можно добавить логику для записи победителя
         console.log(`Победители: ${side2Names}`);
 
-        // Завершаем игру
-        finishGameAfterWinnerSelection(courtId);
+        // Завершаем игру, указывая сторону 2 как победителя
+        finishGameAfterWinnerSelection(courtId, 2);
 
         // Закрываем модальное окно
         document.body.removeChild(modal);
@@ -765,14 +769,46 @@ function showWinnerSelectionDialog(courtId, court) {
 }
 
 // Завершение игры после выбора победителя
-function finishGameAfterWinnerSelection(courtId) {
+function finishGameAfterWinnerSelection(courtId, winningSide) {
     const court = courtsData.find(c => c.id === courtId);
     if (!court) return;
 
-    // Добавляем игроков в очередь
-    [...court.side1, ...court.side2].forEach(player => {
-        queuePlayers.push(player);
-    });
+    // Получаем победителей и проигравших
+    const winners = winningSide === 1 ? [...court.side1] : [...court.side2];
+    const losers = winningSide === 1 ? [...court.side2] : [...court.side1];
+
+    // Обрабатываем игроков в зависимости от режима игры
+    if (gameMode === 'play-once') {
+        // Режим "Играем один раз" - все игроки перемещаются в конец очереди,
+        // сначала победители, а за ними проигравшие
+        winners.forEach(player => {
+            queuePlayers.push(player);
+        });
+
+        losers.forEach(player => {
+            queuePlayers.push(player);
+        });
+    } else if (gameMode === 'max-twice') {
+        // Режим "Не более двух раз" - будет реализован позже
+        // Пока используем логику "Играем один раз"
+        winners.forEach(player => {
+            queuePlayers.push(player);
+        });
+
+        losers.forEach(player => {
+            queuePlayers.push(player);
+        });
+    } else if (gameMode === 'winner-stays') {
+        // Режим "Победитель остается всегда" - будет реализован позже
+        // Пока используем логику "Играем один раз"
+        winners.forEach(player => {
+            queuePlayers.push(player);
+        });
+
+        losers.forEach(player => {
+            queuePlayers.push(player);
+        });
+    }
 
     // Очищаем корт
     court.side1 = [];
@@ -786,6 +822,12 @@ function finishGameAfterWinnerSelection(courtId) {
 // Обработчик для кнопки возврата к списку тренировок
 backToMainBtn.addEventListener('click', function() {
     window.location.href = 'index.html';
+});
+
+// Обработчик для выбора режима игры
+gameModeSelect.addEventListener('change', function() {
+    gameMode = this.value;
+    console.log(`Выбран режим игры: ${gameMode}`);
 });
 
 // Инициализация при загрузке страницы

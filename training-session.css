@@ -33,6 +33,45 @@
     text-align: center;
 }
 
+/* Стили для выпадающего меню режима игры */
+.game-mode-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    background-color: white;
+    padding: 10px 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.game-mode-container label {
+    margin-right: 10px;
+    font-weight: bold;
+    color: #333;
+}
+
+.game-mode-select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.game-mode-select:hover {
+    border-color: #2196F3;
+}
+
+.game-mode-select:focus {
+    outline: none;
+    border-color: #2196F3;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
 .training-info-panel {
     display: flex;
     justify-content: space-between;
@@ -452,5 +491,18 @@
 
     .back-arrow {
         left: 10px;
+    }
+
+    .game-mode-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .game-mode-container label {
+        margin-bottom: 5px;
+    }
+
+    .game-mode-select {
+        width: 100%;
     }
 }
