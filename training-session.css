@@ -1,5 +1,38 @@
 /* Стили для страницы проведения тренировки */
 
+/* Стили для заголовка и стрелки назад */
+.session-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.back-arrow {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #2196F3;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.back-arrow:hover {
+    background-color: rgba(33, 150, 243, 0.1);
+}
+
+.session-header h1 {
+    flex: 1;
+    text-align: center;
+}
+
 .training-info-panel {
     display: flex;
     justify-content: space-between;
@@ -411,5 +444,13 @@
     .player-selection-modal-content {
         width: 95%;
         max-height: 70%;
+    }
+
+    .session-header {
+        padding-left: 40px;
+    }
+
+    .back-arrow {
+        left: 10px;
     }
 }
