@@ -208,7 +208,7 @@ function renderCourts() {
         let side1PlayersHtml = '';
         if (court.side1.length > 0) {
             court.side1.forEach(player => {
-                const photoSrc = player.photo || defaultAvatarDataURL;
+                const photoSrc = player.photo || defaultAvatarURL;
                 side1PlayersHtml += `
                     <div class="court-player">
                         <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
@@ -225,7 +225,7 @@ function renderCourts() {
         let side2PlayersHtml = '';
         if (court.side2.length > 0) {
             court.side2.forEach(player => {
-                const photoSrc = player.photo || defaultAvatarDataURL;
+                const photoSrc = player.photo || defaultAvatarURL;
                 side2PlayersHtml += `
                     <div class="court-player">
                         <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
@@ -320,11 +320,7 @@ function renderCourts() {
             const courtId = parseInt(this.getAttribute('data-court'));
             const side = parseInt(this.getAttribute('data-side'));
             const playerIndex = parseInt(this.getAttribute('data-index'));
-    // Функция сохранена для совместимости с существующим кодом,
-    // но не выполняет отображение, так как элемент скрыт
-    // Это позволяет избежать ошибок в коде, который вызывает эту функцию
-
-    // Очищаем содержимое для экономии памяти    removePlayerFromCourt(courtId, side, playerIndex);
+            removePlayerFromCourt(courtId, side, playerIndex);
         });
     });
 }
@@ -336,9 +332,9 @@ function renderQueue() {
     queuePlayers.forEach(player => {
         const playerElement = document.createElement('div');
         playerElement.classList.add('queue-player');
-        
-        const photoSrc = player.photo || defaultAvatarDataURL;
-        
+
+        const photoSrc = player.photo || defaultAvatarURL;
+
         playerElement.innerHTML = `
             <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="queue-player-photo">
             <span class="queue-player-name">${player.firstName} ${player.lastName}</span>
@@ -421,7 +417,7 @@ function showPlayerSelectionDialog(courtId, side) {
         const playerItem = document.createElement('div');
         playerItem.classList.add('player-selection-item');
 
-        const photoSrc = player.photo || defaultAvatarDataURL;
+        const photoSrc = player.photo || defaultAvatarURL;
 
         playerItem.innerHTML = `
             <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="player-selection-photo">
