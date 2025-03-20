@@ -799,20 +799,30 @@ function finishGameAfterWinnerSelection(courtId, winningSide) {
             queuePlayers.push(player);
         });
     } else if (gameMode === 'winner-stays') {
-        // Режим "Победитель остается всегда" - будет реализован позже
-        // Пока используем логику "Играем один раз"
-        winners.forEach(player => {
-            queuePlayers.push(player);
-        });
+        // Режим "Победитель остается всегда" - победители остаются на корте,
+        // проигравшие отправляются в конец очереди
 
+        // Отправляем проигравших в конец очереди
         losers.forEach(player => {
             queuePlayers.push(player);
         });
+
+        // Возвращаем победителей на корт
+        if (winningSide === 1) {
+            court.side1 = winners;
+            court.side2 = [];
+        } else {
+            court.side1 = [];
+            court.side2 = winners;
+        }
     }
 
-    // Очищаем корт
-    court.side1 = [];
-    court.side2 = [];
+    // Очищаем корт только если это не режим "Победитель остается всегда"
+    // или если это режим "Победитель остается всегда", но мы уже обработали победителей выше
+    if (gameMode !== 'winner-stays') {
+        court.side1 = [];
+        court.side2 = [];
+    }
 
     // Обновляем отображение
     renderCourts();
