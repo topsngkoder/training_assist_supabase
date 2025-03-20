@@ -36,6 +36,9 @@ const trainingPlayersSelection = document.getElementById('training-players-selec
 // Переменная для хранения информации о текущей тренировке при создании игрока
 let currentTrainingData = null;
 
+// Переменная для хранения пути к старой фотографии (для удаления при обновлении)
+let oldPhotoPath = null;
+
 // Функция для создания дефолтного аватара
 function createDefaultAvatar() {
     const canvas = document.createElement('canvas');
@@ -714,6 +717,22 @@ playerForm.addEventListener('submit', async function(e) {
         if (id !== null) {
             // Редактирование существующего игрока
             await updatePlayer(id, playerData);
+
+            // Если это обновление и у игрока было старое фото, удаляем его
+            if (id !== null && oldPhotoPath) {
+                try {
+                    // Удаляем старое фото из хранилища
+                    const { error: deleteError } = await supabase.storage
+                        .from('player-photos')
+                        .remove([oldPhotoPath]);
+
+                    if (deleteError) {
+                        console.warn('Не удалось удалить старое фото:', deleteError);
+                    }
+                } catch (deleteErr) {
+                    console.warn('Ошибка при удалении старого фото:', deleteErr);
+                }
+            }
         } else {
             // Добавление нового игрока
             await addPlayer(playerData);
@@ -865,18 +884,66 @@ sortRatingBtn.addEventListener('click', function() {
     sortRatingBtn.classList.add('active');
 });
 
+// Функция для предпросмотра фотографии
+function previewPhoto(file) {
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+        // Показываем контейнер с фото
+        currentPhotoContainer.style.display = 'block';
+        // Устанавливаем изображение для предпросмотра
+        currentPhoto.src = e.target.result;
+        // Добавляем класс для стилизации предпросмотра
+        currentPhoto.classList.add('preview');
+    }
+
+    reader.readAsDataURL(file);
+}
+
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
     // Загружаем данные из Supabase
     loadData();
-    
+
     // Устанавливаем активную вкладку
     switchTab(activeTab);
-    
+
     // Устанавливаем активную кнопку сортировки
     if (currentSortMethod === 'name') {
         sortNameBtn.classList.add('active');
     } else {
         sortRatingBtn.classList.add('active');
     }
+
+    // Добавляем обработчик события изменения поля загрузки фото
+    document.getElementById('photo').addEventListener('change', function(e) {
+        if (this.files && this.files[0]) {
+            // Проверяем тип файла
+            const file = this.files[0];
+            const fileType = file.type;
+            const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+            if (!validImageTypes.includes(fileType)) {
+                alert('Пожалуйста, выберите изображение в формате JPEG, PNG, GIF или WebP');
+                this.value = ''; // Очищаем поле
+                return;
+            }
+
+            // Проверяем размер файла (максимум 2 МБ)
+            const maxSize = 2 * 1024 * 1024; // 2 МБ в байтах
+            if (file.size > maxSize) {
+                alert('Размер файла не должен превышать 2 МБ');
+                this.value = ''; // Очищаем поле
+                return;
+            }
+
+            // Показываем предпросмотр
+            previewPhoto(file);
+        } else {
+            // Скрываем контейнер с фото, если файл не выбран
+            currentPhotoContainer.style.display = 'none';
+        }
+    });
 });
