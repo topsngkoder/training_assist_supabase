@@ -14,6 +14,9 @@ let currentTraining = null;
 let courtsData = [];
 let queuePlayers = [];
 
+// Отслеживание количества побед подряд для игроков
+let consecutiveWins = {};
+
 // Данные для таймеров
 let gameTimers = {}; // Объект для хранения интервалов таймеров
 let gameStartTimes = {}; // Объект для хранения времени начала игры
@@ -220,11 +223,16 @@ function renderCourts() {
         if (court.side1.length > 0) {
             court.side1.forEach(player => {
                 const photoSrc = player.photo || defaultAvatarURL;
+                // Проверяем, играет ли игрок вторую игру подряд
+                const isSecondGame = consecutiveWins[player.id] && gameMode === 'max-twice';
                 side1PlayersHtml += `
-                    <div class="court-player">
+                    <div class="court-player ${isSecondGame ? 'second-game' : ''}">
                         <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
                         <div class="player-name-container">
-                            <div>${player.firstName} ${player.lastName}</div>
+                            <div>
+                                ${player.firstName} ${player.lastName}
+                                ${isSecondGame ? '<span class="second-game-badge" title="2-я игра">2</span>' : ''}
+                            </div>
                             ${isGameInProgress ? '' : `<span class="remove-player" data-court="${court.id}" data-side="1" data-index="${court.side1.indexOf(player)}">&times;</span>`}
                         </div>
                     </div>
@@ -237,11 +245,16 @@ function renderCourts() {
         if (court.side2.length > 0) {
             court.side2.forEach(player => {
                 const photoSrc = player.photo || defaultAvatarURL;
+                // Проверяем, играет ли игрок вторую игру подряд
+                const isSecondGame = consecutiveWins[player.id] && gameMode === 'max-twice';
                 side2PlayersHtml += `
-                    <div class="court-player">
+                    <div class="court-player ${isSecondGame ? 'second-game' : ''}">
                         <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
                         <div class="player-name-container">
-                            <div>${player.firstName} ${player.lastName}</div>
+                            <div>
+                                ${player.firstName} ${player.lastName}
+                                ${isSecondGame ? '<span class="second-game-badge" title="2-я игра">2</span>' : ''}
+                            </div>
                             ${isGameInProgress ? '' : `<span class="remove-player" data-court="${court.id}" data-side="2" data-index="${court.side2.indexOf(player)}">&times;</span>`}
                         </div>
                     </div>
@@ -574,6 +587,11 @@ function removePlayerFromCourt(courtId, side, playerIndex) {
 
     // Добавляем игрока в начало очереди
     if (removedPlayer) {
+        // Сбрасываем счетчик побед для удаленного игрока
+        if (consecutiveWins[removedPlayer.id]) {
+            delete consecutiveWins[removedPlayer.id];
+        }
+
         queuePlayers.unshift(removedPlayer);
     }
 
@@ -651,6 +669,17 @@ function cancelGame(courtId) {
 
     startButton.style.display = 'block';
     actionsContainer.style.display = 'none';
+
+    // Получаем корт
+    const court = courtsData.find(c => c.id === courtId);
+    if (court) {
+        // Сбрасываем счетчик побед для всех игроков на корте
+        [...court.side1, ...court.side2].forEach(player => {
+            if (consecutiveWins[player.id]) {
+                delete consecutiveWins[player.id];
+            }
+        });
+    }
 
     // Перерисовываем корты, чтобы снять ограничения на изменение состава игроков
     renderCourts();
@@ -789,15 +818,65 @@ function finishGameAfterWinnerSelection(courtId, winningSide) {
             queuePlayers.push(player);
         });
     } else if (gameMode === 'max-twice') {
-        // Режим "Не более двух раз" - будет реализован позже
-        // Пока используем логику "Играем один раз"
+        // Режим "Не более двух раз" - победитель остается на корте, но если победитель
+        // побеждает второй раз подряд, он уходит в конец очереди
+
+        // Проверяем, есть ли среди победителей игроки, которые уже выиграли один раз
+        let secondWin = false;
         winners.forEach(player => {
-            queuePlayers.push(player);
+            // Если у игрока уже есть победа, значит это вторая победа подряд
+            if (consecutiveWins[player.id]) {
+                secondWin = true;
+            }
         });
 
-        losers.forEach(player => {
-            queuePlayers.push(player);
-        });
+        if (secondWin) {
+            // Если это вторая победа подряд, победители уходят в конец очереди,
+            // а затем проигравшие
+            winners.forEach(player => {
+                // Сбрасываем счетчик побед
+                delete consecutiveWins[player.id];
+                queuePlayers.push(player);
+            });
+
+            losers.forEach(player => {
+                // Сбрасываем счетчик побед для проигравших (на всякий случай)
+                delete consecutiveWins[player.id];
+                queuePlayers.push(player);
+            });
+
+            // Очищаем корт
+            if (winningSide === 1) {
+                court.side1 = [];
+                court.side2 = [];
+            } else {
+                court.side1 = [];
+                court.side2 = [];
+            }
+        } else {
+            // Если это первая победа, победители остаются на корте
+            // и получают отметку о первой победе
+            winners.forEach(player => {
+                // Отмечаем, что у игрока есть победа
+                consecutiveWins[player.id] = true;
+            });
+
+            // Проигравшие уходят в конец очереди
+            losers.forEach(player => {
+                // Сбрасываем счетчик побед для проигравших (на всякий случай)
+                delete consecutiveWins[player.id];
+                queuePlayers.push(player);
+            });
+
+            // Победители всегда перемещаются на верхнюю половину корта (side1)
+            if (winningSide === 1) {
+                court.side1 = winners;
+                court.side2 = [];
+            } else {
+                court.side1 = winners;
+                court.side2 = [];
+            }
+        }
     } else if (gameMode === 'winner-stays') {
         // Режим "Победитель остается всегда" - победители остаются на корте,
         // проигравшие отправляются в конец очереди
