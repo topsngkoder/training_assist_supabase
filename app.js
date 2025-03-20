@@ -1,8 +1,8 @@
 // Импортируем клиент Supabase
 import supabase from './supabase.js';
 
-// URL дефолтного изображения в Supabase Storage
-const defaultAvatarURL = 'https://nthnntlbqwpxnpobbqzl.supabase.co/storage/v1/object/public/player-photos/default-avatar.png';
+// Создаем дефолтное изображение
+const defaultAvatarDataURL = createDefaultAvatar();
 
 // Инициализация данных
 let players = [];
@@ -36,8 +36,36 @@ const trainingPlayersSelection = document.getElementById('training-players-selec
 // Переменная для хранения информации о текущей тренировке при создании игрока
 let currentTrainingData = null;
 
-// Функция для создания дефолтного аватара больше не нужна,
-// так как мы используем готовое изображение из Supabase Storage
+// Функция для создания дефолтного аватара
+function createDefaultAvatar() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    const ctx = canvas.getContext('2d');
+
+    // Создаем круглый фон
+    ctx.fillStyle = '#e0e0e0';
+    ctx.beginPath();
+    ctx.arc(100, 100, 100, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Рисуем силуэт
+    ctx.fillStyle = '#a0a0a0';
+    ctx.beginPath();
+    ctx.arc(100, 80, 40, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Рисуем тело
+    ctx.beginPath();
+    ctx.arc(100, 200, 60, Math.PI, 0, true);
+    ctx.fill();
+
+    // Соединяем голову и тело
+    ctx.fillRect(60, 80, 80, 80);
+
+    // Возвращаем как data URL
+    return canvas.toDataURL('image/png');
+}
 
 // Загрузка данных из Supabase
 async function loadData() {
@@ -129,7 +157,7 @@ function renderPlayers() {
         const playerCard = document.createElement('div');
         playerCard.classList.add('player-card');
 
-        const photoSrc = player.photo || defaultAvatarURL;
+        const photoSrc = player.photo || defaultAvatarDataURL;
 
         playerCard.innerHTML = `
             <div class="player-card-content">
@@ -347,7 +375,7 @@ function renderTrainings() {
             training.playerIds.forEach(playerIndex => {
                 const player = players[playerIndex];
                 if (player) {
-                    const photoSrc = player.photo || defaultAvatarURL;
+                    const photoSrc = player.photo || defaultAvatarDataURL;
                     playersHtml += `
                         <div class="training-player-item">
                             <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="training-player-photo">
@@ -623,7 +651,7 @@ function fillTrainingPlayersSelection(selectedPlayerIds = []) {
         const playerItem = document.createElement('div');
         playerItem.classList.add('player-checkbox-item');
 
-        const photoSrc = player.photo || defaultAvatarURL;
+        const photoSrc = player.photo || defaultAvatarDataURL;
         const isChecked = selectedPlayerIds.includes(index);
 
         playerItem.innerHTML = `
@@ -674,43 +702,13 @@ playerForm.addEventListener('submit', async function(e) {
     const photoInput = document.getElementById('photo');
     const id = playerIndex.value ? parseInt(playerIndex.value) : null;
 
-    try {
-        let photoUrl = null;
-
-        // Проверяем, загружено ли новое фото
-        if (photoInput.files && photoInput.files[0]) {
-            const file = photoInput.files[0];
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}.${fileExt}`;
-            const filePath = `${fileName}`;
-
-            // Загружаем файл в Supabase Storage
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('player-photos')
-                .upload(filePath, file, {
-                    cacheControl: '3600',
-                    upsert: true
-                });
-
-            if (uploadError) throw uploadError;
-
-            // Получаем публичный URL загруженного файла
-            const { data: { publicUrl } } = supabase.storage
-                .from('player-photos')
-                .getPublicUrl(filePath);
-
-            photoUrl = publicUrl;
-        } else if (id !== null) {
-            // Если фото не изменилось, используем текущее
-            const currentPlayer = players.find(p => p.id === id);
-            photoUrl = currentPlayer?.photo || null;
-        }
-
+    // Функция для сохранения игрока
+    const savePlayer = async (photoData) => {
         const playerData = {
             firstName,
             lastName,
             rating,
-            photo: photoUrl
+            photo: photoData
         };
 
         if (id !== null) {
@@ -728,16 +726,26 @@ playerForm.addEventListener('submit', async function(e) {
         if (currentTrainingData) {
             // Обновляем список игроков в форме тренировки
             fillTrainingPlayersSelection(currentTrainingData.playerIds);
-
+            
             // Открываем модальное окно тренировки
             trainingModal.style.display = 'block';
-
+            
             // Сбрасываем данные текущей тренировки
             currentTrainingData = null;
         }
-    } catch (error) {
-        console.error('Ошибка при сохранении игрока:', error);
-        alert('Произошла ошибка при сохранении игрока. Пожалуйста, попробуйте позже.');
+    };
+
+    // Проверяем, загружено ли новое фото
+    if (photoInput.files && photoInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            await savePlayer(e.target.result);
+        };
+        reader.readAsDataURL(photoInput.files[0]);
+    } else {
+        // Если фото не изменилось, используем текущее или null
+        const currentPhotoData = id !== null && players.find(p => p.id === id)?.photo;
+        await savePlayer(currentPhotoData);
     }
 });
 

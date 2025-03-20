@@ -20,8 +20,38 @@ const courtsContainer = document.getElementById('courts-container');
 const playersQueue = document.getElementById('players-queue');
 const backToMainBtn = document.getElementById('back-to-main');
 
-// URL дефолтного изображения в Supabase Storage
-const defaultAvatarURL = 'https://nthnntlbqwpxnpobbqzl.supabase.co/storage/v1/object/public/player-photos/default-avatar.png';
+// Создаем дефолтное изображение
+function createDefaultAvatar() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    const ctx = canvas.getContext('2d');
+    
+    // Создаем круглый фон
+    ctx.fillStyle = '#e0e0e0';
+    ctx.beginPath();
+    ctx.arc(100, 100, 100, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Рисуем силуэт
+    ctx.fillStyle = '#a0a0a0';
+    ctx.beginPath();
+    ctx.arc(100, 80, 40, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Рисуем тело
+    ctx.beginPath();
+    ctx.arc(100, 200, 60, Math.PI, 0, true);
+    ctx.fill();
+    
+    // Соединяем голову и тело
+    ctx.fillRect(60, 80, 80, 80);
+    
+    // Возвращаем как data URL
+    return canvas.toDataURL('image/png');
+}
+
+const defaultAvatarDataURL = createDefaultAvatar();
 
 // Загрузка данных из Supabase
 async function loadData() {
@@ -178,7 +208,7 @@ function renderCourts() {
         let side1PlayersHtml = '';
         if (court.side1.length > 0) {
             court.side1.forEach(player => {
-                const photoSrc = player.photo || defaultAvatarURL;
+                const photoSrc = player.photo || defaultAvatarDataURL;
                 side1PlayersHtml += `
                     <div class="court-player">
                         <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
@@ -195,7 +225,7 @@ function renderCourts() {
         let side2PlayersHtml = '';
         if (court.side2.length > 0) {
             court.side2.forEach(player => {
-                const photoSrc = player.photo || defaultAvatarURL;
+                const photoSrc = player.photo || defaultAvatarDataURL;
                 side2PlayersHtml += `
                     <div class="court-player">
                         <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
@@ -302,9 +332,9 @@ function renderQueue() {
     queuePlayers.forEach(player => {
         const playerElement = document.createElement('div');
         playerElement.classList.add('queue-player');
-
-        const photoSrc = player.photo || defaultAvatarURL;
-
+        
+        const photoSrc = player.photo || defaultAvatarDataURL;
+        
         playerElement.innerHTML = `
             <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="queue-player-photo">
             <span class="queue-player-name">${player.firstName} ${player.lastName}</span>
@@ -387,7 +417,7 @@ function showPlayerSelectionDialog(courtId, side) {
         const playerItem = document.createElement('div');
         playerItem.classList.add('player-selection-item');
 
-        const photoSrc = player.photo || defaultAvatarURL;
+        const photoSrc = player.photo || defaultAvatarDataURL;
 
         playerItem.innerHTML = `
             <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="player-selection-photo">
