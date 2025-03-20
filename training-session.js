@@ -647,6 +647,9 @@ function cancelGame(courtId) {
 
     startButton.style.display = 'block';
     actionsContainer.style.display = 'none';
+
+    // Перерисовываем корты, чтобы снять ограничения на изменение состава игроков
+    renderCourts();
 }
 
 // Завершение игры на корте
