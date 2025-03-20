@@ -14,6 +14,10 @@ let currentTraining = null;
 let courtsData = [];
 let queuePlayers = [];
 
+// Данные для таймеров
+let gameTimers = {}; // Объект для хранения интервалов таймеров
+let gameStartTimes = {}; // Объект для хранения времени начала игры
+
 // DOM элементы
 const trainingInfoElement = document.getElementById('training-info');
 const courtsContainer = document.getElementById('courts-container');
@@ -238,9 +242,15 @@ function renderCourts() {
             });
         }
         
+        // Проверяем, запущен ли таймер для этого корта
+        const isGameInProgress = gameTimers[court.id] !== undefined;
+
         courtCard.innerHTML = `
             <div class="court-header">
-                <div class="court-title">${court.name}</div>
+                <div class="court-title-container">
+                    <div class="court-title">${court.name}</div>
+                    <div class="court-timer" id="timer-${court.id}" style="display: ${isGameInProgress ? 'block' : 'none'}">00:00</div>
+                </div>
             </div>
             <div class="court-sides">
                 <div class="court-side side1">
@@ -283,7 +293,11 @@ function renderCourts() {
                 </div>
             </div>
             <div class="court-actions">
-                <button class="btn finish-game-btn" data-court="${court.id}">Игра завершена</button>
+                <button class="btn start-game-btn" data-court="${court.id}" style="display: ${isGameInProgress ? 'none' : 'block'}">Начать</button>
+                <div class="game-in-progress-actions" id="game-actions-${court.id}" style="display: ${isGameInProgress ? 'flex' : 'none'}">
+                    <button class="btn cancel-game-btn secondary-btn" data-court="${court.id}">Отмена</button>
+                    <button class="btn finish-game-btn" data-court="${court.id}">Игра завершена</button>
+                </div>
             </div>
         `;
         
@@ -307,6 +321,20 @@ function renderCourts() {
         });
     });
     
+    document.querySelectorAll('.start-game-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courtId = parseInt(this.getAttribute('data-court'));
+            startGame(courtId);
+        });
+    });
+
+    document.querySelectorAll('.cancel-game-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courtId = parseInt(this.getAttribute('data-court'));
+            cancelGame(courtId);
+        });
+    });
+
     document.querySelectorAll('.finish-game-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const courtId = parseInt(this.getAttribute('data-court'));
@@ -322,6 +350,11 @@ function renderCourts() {
             const playerIndex = parseInt(this.getAttribute('data-index'));
             removePlayerFromCourt(courtId, side, playerIndex);
         });
+    });
+
+    // Обновляем таймеры для кортов, где игра в процессе
+    Object.keys(gameTimers).forEach(courtId => {
+        updateTimer(parseInt(courtId));
     });
 }
 
@@ -516,9 +549,89 @@ function removePlayerFromCourt(courtId, side, playerIndex) {
     renderQueue();
 }
 
+// Запуск игры на корте
+function startGame(courtId) {
+    // Показываем таймер
+    const timerElement = document.getElementById(`timer-${courtId}`);
+    timerElement.style.display = 'block';
+
+    // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
+    const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
+    const actionsContainer = document.getElementById(`game-actions-${courtId}`);
+
+    startButton.style.display = 'none';
+    actionsContainer.style.display = 'flex';
+
+    // Запускаем таймер
+    gameStartTimes[courtId] = Date.now();
+
+    // Обновляем таймер каждую секунду
+    gameTimers[courtId] = setInterval(() => {
+        updateTimer(courtId);
+    }, 1000);
+
+    // Сразу обновляем таймер, чтобы показать 00:00
+    updateTimer(courtId);
+}
+
+// Обновление таймера
+function updateTimer(courtId) {
+    const timerElement = document.getElementById(`timer-${courtId}`);
+    const startTime = gameStartTimes[courtId];
+    const currentTime = Date.now();
+    const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
+
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = elapsedSeconds % 60;
+
+    // Форматируем время в формат MM:SS
+    const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    timerElement.textContent = formattedTime;
+}
+
+// Отмена игры (сброс таймера)
+function cancelGame(courtId) {
+    // Останавливаем таймер
+    clearInterval(gameTimers[courtId]);
+    delete gameTimers[courtId];
+    delete gameStartTimes[courtId];
+
+    // Скрываем таймер
+    const timerElement = document.getElementById(`timer-${courtId}`);
+    timerElement.style.display = 'none';
+
+    // Показываем кнопку "Начать" и скрываем кнопки "Отмена" и "Игра завершена"
+    const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
+    const actionsContainer = document.getElementById(`game-actions-${courtId}`);
+
+    startButton.style.display = 'block';
+    actionsContainer.style.display = 'none';
+}
+
 // Завершение игры на корте
 function finishGame(courtId) {
-    alert('Функционал завершения игры будет добавлен в следующей версии');
+    // Останавливаем таймер
+    if (gameTimers[courtId]) {
+        clearInterval(gameTimers[courtId]);
+        delete gameTimers[courtId];
+        delete gameStartTimes[courtId];
+    }
+
+    const court = courtsData.find(c => c.id === courtId);
+    if (!court) return;
+
+    // Добавляем игроков в очередь
+    [...court.side1, ...court.side2].forEach(player => {
+        queuePlayers.push(player);
+    });
+
+    // Очищаем корт
+    court.side1 = [];
+    court.side2 = [];
+
+    // Обновляем отображение
+    renderCourts();
+    renderQueue();
 }
 
 // Обработчик для кнопки возврата к списку тренировок
