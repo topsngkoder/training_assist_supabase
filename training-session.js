@@ -55,7 +55,7 @@ function createDefaultAvatar() {
     return canvas.toDataURL('image/png');
 }
 
-const defaultAvatarDataURL = createDefaultAvatar();
+const defaultAvatarURL = createDefaultAvatar();
 
 // Загрузка данных из Supabase
 async function loadData() {
@@ -203,10 +203,13 @@ function initQueue() {
 // Отображение кортов
 function renderCourts() {
     courtsContainer.innerHTML = '';
-    
+
     courtsData.forEach(court => {
         const courtCard = document.createElement('div');
         courtCard.classList.add('court-card');
+
+        // Проверяем, запущен ли таймер для этого корта
+        const isGameInProgress = gameTimers[court.id] !== undefined;
         
         // Создаем HTML для игроков на стороне 1
         let side1PlayersHtml = '';
@@ -241,9 +244,6 @@ function renderCourts() {
                 `;
             });
         }
-        
-        // Проверяем, запущен ли таймер для этого корта
-        const isGameInProgress = gameTimers[court.id] !== undefined;
 
         courtCard.innerHTML = `
             <div class="court-header">
