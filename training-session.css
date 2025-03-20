@@ -152,6 +152,16 @@
     background-color: #3e8e41;
 }
 
+.start-game-btn.disabled {
+    background-color: #cccccc !important;
+    color: #666666 !important;
+    cursor: not-allowed;
+}
+
+.start-game-btn.disabled:hover {
+    background-color: #cccccc !important;
+}
+
 .cancel-game-btn {
     background-color: #9E9E9E;
     color: white;

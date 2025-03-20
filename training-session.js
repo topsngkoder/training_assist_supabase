@@ -218,7 +218,7 @@ function renderCourts() {
                         <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
                         <div class="player-name-container">
                             <div>${player.firstName} ${player.lastName}</div>
-                            <span class="remove-player" data-court="${court.id}" data-side="1" data-index="${court.side1.indexOf(player)}">&times;</span>
+                            ${isGameInProgress ? '' : `<span class="remove-player" data-court="${court.id}" data-side="1" data-index="${court.side1.indexOf(player)}">&times;</span>`}
                         </div>
                     </div>
                 `;
@@ -235,7 +235,7 @@ function renderCourts() {
                         <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
                         <div class="player-name-container">
                             <div>${player.firstName} ${player.lastName}</div>
-                            <span class="remove-player" data-court="${court.id}" data-side="2" data-index="${court.side2.indexOf(player)}">&times;</span>
+                            ${isGameInProgress ? '' : `<span class="remove-player" data-court="${court.id}" data-side="2" data-index="${court.side2.indexOf(player)}">&times;</span>`}
                         </div>
                     </div>
                 `;
@@ -258,16 +258,16 @@ function renderCourts() {
                         ${side1PlayersHtml}
                     </div>
                     <div class="court-buttons">
-                        <button class="btn quick-add-btn ${court.side1.length >= 2 || queuePlayers.length === 0 ? 'disabled' : ''}"
+                        <button class="btn quick-add-btn ${court.side1.length >= 2 || queuePlayers.length === 0 || isGameInProgress ? 'disabled' : ''}"
                                 data-court="${court.id}"
                                 data-side="1"
-                                ${court.side1.length >= 2 || queuePlayers.length === 0 ? 'disabled' : ''}>
+                                ${court.side1.length >= 2 || queuePlayers.length === 0 || isGameInProgress ? 'disabled' : ''}>
                             Очередь
                         </button>
-                        <button class="btn select-add-btn ${court.side1.length >= 2 ? 'disabled' : ''}"
+                        <button class="btn select-add-btn ${court.side1.length >= 2 || isGameInProgress ? 'disabled' : ''}"
                                 data-court="${court.id}"
                                 data-side="1"
-                                ${court.side1.length >= 2 ? 'disabled' : ''}>
+                                ${court.side1.length >= 2 || isGameInProgress ? 'disabled' : ''}>
                             +
                         </button>
                     </div>
@@ -277,23 +277,28 @@ function renderCourts() {
                         ${side2PlayersHtml}
                     </div>
                     <div class="court-buttons">
-                        <button class="btn quick-add-btn ${court.side2.length >= 2 || queuePlayers.length === 0 ? 'disabled' : ''}"
+                        <button class="btn quick-add-btn ${court.side2.length >= 2 || queuePlayers.length === 0 || isGameInProgress ? 'disabled' : ''}"
                                 data-court="${court.id}"
                                 data-side="2"
-                                ${court.side2.length >= 2 || queuePlayers.length === 0 ? 'disabled' : ''}>
+                                ${court.side2.length >= 2 || queuePlayers.length === 0 || isGameInProgress ? 'disabled' : ''}>
                             Очередь
                         </button>
-                        <button class="btn select-add-btn ${court.side2.length >= 2 ? 'disabled' : ''}"
+                        <button class="btn select-add-btn ${court.side2.length >= 2 || isGameInProgress ? 'disabled' : ''}"
                                 data-court="${court.id}"
                                 data-side="2"
-                                ${court.side2.length >= 2 ? 'disabled' : ''}>
+                                ${court.side2.length >= 2 || isGameInProgress ? 'disabled' : ''}>
                             +
                         </button>
                     </div>
                 </div>
             </div>
             <div class="court-actions">
-                <button class="btn start-game-btn" data-court="${court.id}" style="display: ${isGameInProgress ? 'none' : 'block'}">Начать</button>
+                <button class="btn start-game-btn ${(court.side1.length === 0 || court.side2.length === 0 || court.side1.length > 2 || court.side2.length > 2) ? 'disabled' : ''}"
+                        data-court="${court.id}"
+                        style="display: ${isGameInProgress ? 'none' : 'block'}"
+                        ${(court.side1.length === 0 || court.side2.length === 0 || court.side1.length > 2 || court.side2.length > 2) ? 'disabled' : ''}>
+                    Начать
+                </button>
                 <div class="game-in-progress-actions" id="game-actions-${court.id}" style="display: ${isGameInProgress ? 'flex' : 'none'}">
                     <button class="btn cancel-game-btn secondary-btn" data-court="${court.id}">Отмена</button>
                     <button class="btn finish-game-btn" data-court="${court.id}">Игра завершена</button>
@@ -388,6 +393,12 @@ function addFirstPlayerFromQueue(courtId, side) {
     const court = courtsData.find(c => c.id === courtId);
     if (!court) return;
 
+    // Проверяем, не запущена ли игра на этом корте
+    if (gameTimers[courtId] !== undefined) {
+        alert('Нельзя изменять состав участников во время игры');
+        return;
+    }
+
     const sideArray = side === 1 ? court.side1 : court.side2;
     if (sideArray.length >= 2) {
         alert('На этой стороне уже максимальное количество игроков (2)');
@@ -420,6 +431,12 @@ function showPlayerSelectionDialog(courtId, side) {
     // Проверяем, есть ли место на выбранной стороне корта
     const court = courtsData.find(c => c.id === courtId);
     if (!court) return;
+
+    // Проверяем, не запущена ли игра на этом корте
+    if (gameTimers[courtId] !== undefined) {
+        alert('Нельзя изменять состав участников во время игры');
+        return;
+    }
 
     const sideArray = side === 1 ? court.side1 : court.side2;
     if (sideArray.length >= 2) {
@@ -505,6 +522,12 @@ function addPlayerToCourt(courtId, side, player) {
     const court = courtsData.find(c => c.id === courtId);
     if (!court) return;
 
+    // Проверяем, не запущена ли игра на этом корте
+    if (gameTimers[courtId] !== undefined) {
+        alert('Нельзя изменять состав участников во время игры');
+        return false;
+    }
+
     // Проверяем, что на стороне не более 2 игроков
     if (side === 1) {
         if (court.side1.length >= 2) {
@@ -527,6 +550,12 @@ function addPlayerToCourt(courtId, side, player) {
 function removePlayerFromCourt(courtId, side, playerIndex) {
     const court = courtsData.find(c => c.id === courtId);
     if (!court) return;
+
+    // Проверяем, не запущена ли игра на этом корте
+    if (gameTimers[courtId] !== undefined) {
+        alert('Нельзя изменять состав участников во время игры');
+        return;
+    }
 
     let removedPlayer;
 
@@ -551,6 +580,15 @@ function removePlayerFromCourt(courtId, side, playerIndex) {
 
 // Запуск игры на корте
 function startGame(courtId) {
+    // Проверяем, что на каждой стороне корта есть по 1 или 2 игрока
+    const court = courtsData.find(c => c.id === courtId);
+    if (!court) return;
+
+    if (court.side1.length === 0 || court.side2.length === 0 || court.side1.length > 2 || court.side2.length > 2) {
+        alert('Для начала игры на каждой стороне корта должно быть по 1 или 2 игрока');
+        return;
+    }
+
     // Показываем таймер
     const timerElement = document.getElementById(`timer-${courtId}`);
     timerElement.style.display = 'block';
@@ -572,6 +610,9 @@ function startGame(courtId) {
 
     // Сразу обновляем таймер, чтобы показать 00:00
     updateTimer(courtId);
+
+    // Перерисовываем корты, чтобы применить ограничения на изменение состава игроков
+    renderCourts();
 }
 
 // Обновление таймера
