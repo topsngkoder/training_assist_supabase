@@ -846,13 +846,8 @@ function finishGameAfterWinnerSelection(courtId, winningSide) {
             });
 
             // Очищаем корт
-            if (winningSide === 1) {
-                court.side1 = [];
-                court.side2 = [];
-            } else {
-                court.side1 = [];
-                court.side2 = [];
-            }
+            court.side1 = [];
+            court.side2 = [];
         } else {
             // Если это первая победа, победители остаются на корте
             // и получают отметку о первой победе
@@ -869,13 +864,8 @@ function finishGameAfterWinnerSelection(courtId, winningSide) {
             });
 
             // Победители всегда перемещаются на верхнюю половину корта (side1)
-            if (winningSide === 1) {
-                court.side1 = winners;
-                court.side2 = [];
-            } else {
-                court.side1 = winners;
-                court.side2 = [];
-            }
+            court.side1 = [...winners]; // Создаем копию массива
+            court.side2 = [];
         }
     } else if (gameMode === 'winner-stays') {
         // Режим "Победитель остается всегда" - победители остаются на корте,
@@ -896,9 +886,9 @@ function finishGameAfterWinnerSelection(courtId, winningSide) {
         }
     }
 
-    // Очищаем корт только если это не режим "Победитель остается всегда"
-    // или если это режим "Победитель остается всегда", но мы уже обработали победителей выше
-    if (gameMode !== 'winner-stays') {
+    // Очищаем корт только если это режим "Играем один раз"
+    // В других режимах мы уже обработали корт выше
+    if (gameMode === 'play-once') {
         court.side1 = [];
         court.side2 = [];
     }
