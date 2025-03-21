@@ -393,7 +393,7 @@ function renderCourts() {
 // Отображение очереди игроков
 function renderQueue() {
     playersQueue.innerHTML = '';
-    
+
     queuePlayers.forEach(player => {
         const playerElement = document.createElement('div');
         playerElement.classList.add('queue-player');
@@ -404,9 +404,12 @@ function renderQueue() {
             <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="queue-player-photo">
             <span class="queue-player-name">${player.firstName} ${player.lastName}</span>
         `;
-        
+
         playersQueue.appendChild(playerElement);
     });
+
+    // Сохраняем состояние тренировки
+    saveTrainingState();
 }
 
 // Быстрое добавление первого игрока из очереди на корт
@@ -445,6 +448,9 @@ function addFirstPlayerFromQueue(courtId, side) {
         // Обновляем отображение
         renderCourts();
         renderQueue();
+
+        // Сохраняем состояние тренировки
+        saveTrainingState();
     }
 }
 
@@ -608,6 +614,9 @@ function removePlayerFromCourt(courtId, side, playerIndex) {
     // Обновляем отображение
     renderCourts();
     renderQueue();
+
+    // Сохраняем состояние тренировки
+    saveTrainingState();
 }
 
 // Запуск игры на корте
@@ -645,6 +654,9 @@ function startGame(courtId) {
 
     // Перерисовываем корты, чтобы применить ограничения на изменение состава игроков
     renderCourts();
+
+    // Сохраняем состояние тренировки
+    saveTrainingState();
 }
 
 // Обновление таймера
@@ -693,6 +705,9 @@ function cancelGame(courtId) {
 
     // Перерисовываем корты, чтобы снять ограничения на изменение состава игроков
     renderCourts();
+
+    // Сохраняем состояние тренировки
+    saveTrainingState();
 }
 
 // Завершение игры на корте
@@ -919,6 +934,9 @@ function finishGameAfterWinnerSelection(courtId, winningSide) {
     // Обновляем отображение
     renderCourts();
     renderQueue();
+
+    // Сохраняем состояние тренировки
+    saveTrainingState();
 }
 
 // Обработчик для кнопки возврата к списку тренировок
@@ -930,10 +948,107 @@ backToMainBtn.addEventListener('click', function() {
 gameModeSelect.addEventListener('change', function() {
     gameMode = this.value;
     console.log(`Выбран режим игры: ${gameMode}`);
+
+    // Сохраняем состояние тренировки при изменении режима игры
+    saveTrainingState();
 });
+
+// Функция для сохранения состояния тренировки в localStorage
+function saveTrainingState() {
+    // Создаем объект с текущим состоянием тренировки
+    const trainingState = {
+        currentTraining,
+        courtsData,
+        queuePlayers,
+        consecutiveWins,
+        gameMode,
+        gameTimers: {}, // Не сохраняем сами таймеры, только их состояние
+        gameStartTimes: {} // Сохраняем время начала игр
+    };
+
+    // Для каждого активного таймера сохраняем время начала
+    Object.keys(gameTimers).forEach(courtId => {
+        trainingState.gameStartTimes[courtId] = gameStartTimes[courtId];
+    });
+
+    // Сохраняем состояние в localStorage
+    localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
+    console.log('Состояние тренировки сохранено');
+}
+
+// Функция для загрузки состояния тренировки из localStorage
+function loadTrainingState() {
+    // Получаем сохраненное состояние из localStorage
+    const savedState = localStorage.getItem(`training_state_${trainingId}`);
+
+    if (savedState) {
+        try {
+            // Парсим сохраненное состояние
+            const state = JSON.parse(savedState);
+
+            // Восстанавливаем состояние тренировки
+            currentTraining = state.currentTraining;
+            courtsData = state.courtsData;
+            queuePlayers = state.queuePlayers;
+            consecutiveWins = state.consecutiveWins || {};
+            gameMode = state.gameMode || 'play-once';
+
+            // Устанавливаем выбранный режим игры в селекте
+            gameModeSelect.value = gameMode;
+
+            // Восстанавливаем таймеры для активных игр
+            if (state.gameStartTimes) {
+                Object.keys(state.gameStartTimes).forEach(courtId => {
+                    // Восстанавливаем время начала игры
+                    gameStartTimes[courtId] = state.gameStartTimes[courtId];
+
+                    // Запускаем таймер заново
+                    const timerElement = document.getElementById(`timer-${courtId}`);
+                    if (timerElement) {
+                        timerElement.style.display = 'inline-block';
+
+                        // Запускаем таймер
+                        gameTimers[courtId] = setInterval(() => {
+                            updateTimer(courtId, timerElement);
+                        }, 1000);
+
+                        // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
+                        const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
+                        const actionsContainer = document.getElementById(`game-actions-${courtId}`);
+
+                        if (startButton && actionsContainer) {
+                            startButton.style.display = 'none';
+                            actionsContainer.style.display = 'flex';
+                        }
+                    }
+                });
+            }
+
+            // Обновляем отображение
+            renderTrainingInfo();
+            renderCourts();
+            renderQueue();
+
+            console.log('Состояние тренировки загружено');
+            return true;
+        } catch (error) {
+            console.error('Ошибка при загрузке состояния тренировки:', error);
+        }
+    }
+
+    return false;
+}
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-    // Загружаем данные из Supabase
-    loadData();
+    // Пытаемся загрузить сохраненное состояние
+    const stateLoaded = loadTrainingState();
+
+    // Если состояние не было загружено, загружаем данные из Supabase
+    if (!stateLoaded) {
+        loadData();
+    }
+
+    // Добавляем обработчик для сохранения состояния при закрытии страницы
+    window.addEventListener('beforeunload', saveTrainingState);
 });
