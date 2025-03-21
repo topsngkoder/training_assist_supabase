@@ -547,7 +547,8 @@ function showPlayerSelectionDialog(courtId, side) {
         const playerItem = document.createElement('div');
         playerItem.classList.add('player-selection-item');
 
-        const photoSrc = player.photo || defaultAvatarURL;
+        // Если у игрока нет фото, создаем аватар с инициалами
+        const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
 
         playerItem.innerHTML = `
             <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="player-selection-photo">
