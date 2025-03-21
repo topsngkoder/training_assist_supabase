@@ -226,6 +226,14 @@ function renderCourts() {
 
         // Проверяем, запущен ли таймер для этого корта
         const isGameInProgress = gameTimers[court.id] !== undefined;
+
+        // Если игра в процессе, убедимся, что таймер отображается
+        if (isGameInProgress) {
+            const timerElement = document.getElementById(`timer-${court.id}`);
+            if (timerElement) {
+                timerElement.style.display = 'block';
+            }
+        }
         
         // Создаем HTML для игроков на стороне 1
         let side1PlayersHtml = '';
@@ -1075,31 +1083,13 @@ async function loadTrainingState() {
             // Устанавливаем выбранный режим игры в селекте
             gameModeSelect.value = gameMode;
 
-            // Восстанавливаем таймеры для активных игр
+            // Сохраняем информацию о начатых играх
+            const activeGames = {};
             if (state.gameStartTimes) {
                 Object.keys(state.gameStartTimes).forEach(courtId => {
-                    // Восстанавливаем время начала игры
-                    gameStartTimes[courtId] = state.gameStartTimes[courtId];
-
-                    // Запускаем таймер заново
-                    const timerElement = document.getElementById(`timer-${courtId}`);
-                    if (timerElement) {
-                        timerElement.style.display = 'inline-block';
-
-                        // Запускаем таймер
-                        gameTimers[courtId] = setInterval(() => {
-                            updateTimer(parseInt(courtId));
-                        }, 1000);
-
-                        // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
-                        const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
-                        const actionsContainer = document.getElementById(`game-actions-${courtId}`);
-
-                        if (startButton && actionsContainer) {
-                            startButton.style.display = 'none';
-                            actionsContainer.style.display = 'flex';
-                        }
-                    }
+                    // Сохраняем время начала игры
+                    gameStartTimes[parseInt(courtId)] = state.gameStartTimes[courtId];
+                    activeGames[parseInt(courtId)] = true;
                 });
             }
 
@@ -1107,6 +1097,39 @@ async function loadTrainingState() {
             displayTrainingInfo();
             renderCourts();
             renderQueue();
+
+            // Восстанавливаем таймеры для активных игр после рендеринга кортов
+            if (Object.keys(activeGames).length > 0) {
+                // Небольшая задержка, чтобы DOM успел обновиться
+                setTimeout(() => {
+                    Object.keys(activeGames).forEach(courtId => {
+                        courtId = parseInt(courtId);
+
+                        // Запускаем таймер заново
+                        const timerElement = document.getElementById(`timer-${courtId}`);
+                        if (timerElement) {
+                            timerElement.style.display = 'block';
+
+                            // Запускаем таймер
+                            gameTimers[courtId] = setInterval(() => {
+                                updateTimer(courtId);
+                            }, 1000);
+
+                            // Сразу обновляем таймер
+                            updateTimer(courtId);
+
+                            // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
+                            const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
+                            const actionsContainer = document.getElementById(`game-actions-${courtId}`);
+
+                            if (startButton && actionsContainer) {
+                                startButton.style.display = 'none';
+                                actionsContainer.style.display = 'flex';
+                            }
+                        }
+                    });
+                }, 100);
+            }
 
             console.log('Состояние тренировки загружено из Supabase');
             return true;
@@ -1144,31 +1167,13 @@ function loadTrainingStateFromLocalStorage() {
             // Устанавливаем выбранный режим игры в селекте
             gameModeSelect.value = gameMode;
 
-            // Восстанавливаем таймеры для активных игр
+            // Сохраняем информацию о начатых играх
+            const activeGames = {};
             if (state.gameStartTimes) {
                 Object.keys(state.gameStartTimes).forEach(courtId => {
-                    // Восстанавливаем время начала игры
-                    gameStartTimes[courtId] = state.gameStartTimes[courtId];
-
-                    // Запускаем таймер заново
-                    const timerElement = document.getElementById(`timer-${courtId}`);
-                    if (timerElement) {
-                        timerElement.style.display = 'inline-block';
-
-                        // Запускаем таймер
-                        gameTimers[courtId] = setInterval(() => {
-                            updateTimer(parseInt(courtId));
-                        }, 1000);
-
-                        // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
-                        const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
-                        const actionsContainer = document.getElementById(`game-actions-${courtId}`);
-
-                        if (startButton && actionsContainer) {
-                            startButton.style.display = 'none';
-                            actionsContainer.style.display = 'flex';
-                        }
-                    }
+                    // Сохраняем время начала игры
+                    gameStartTimes[parseInt(courtId)] = state.gameStartTimes[courtId];
+                    activeGames[parseInt(courtId)] = true;
                 });
             }
 
@@ -1176,6 +1181,39 @@ function loadTrainingStateFromLocalStorage() {
             displayTrainingInfo();
             renderCourts();
             renderQueue();
+
+            // Восстанавливаем таймеры для активных игр после рендеринга кортов
+            if (Object.keys(activeGames).length > 0) {
+                // Небольшая задержка, чтобы DOM успел обновиться
+                setTimeout(() => {
+                    Object.keys(activeGames).forEach(courtId => {
+                        courtId = parseInt(courtId);
+
+                        // Запускаем таймер заново
+                        const timerElement = document.getElementById(`timer-${courtId}`);
+                        if (timerElement) {
+                            timerElement.style.display = 'block';
+
+                            // Запускаем таймер
+                            gameTimers[courtId] = setInterval(() => {
+                                updateTimer(courtId);
+                            }, 1000);
+
+                            // Сразу обновляем таймер
+                            updateTimer(courtId);
+
+                            // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
+                            const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
+                            const actionsContainer = document.getElementById(`game-actions-${courtId}`);
+
+                            if (startButton && actionsContainer) {
+                                startButton.style.display = 'none';
+                                actionsContainer.style.display = 'flex';
+                            }
+                        }
+                    });
+                }, 100);
+            }
 
             console.log('Состояние тренировки загружено из localStorage');
             return true;
