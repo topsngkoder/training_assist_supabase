@@ -164,6 +164,9 @@ function hideLoadingIndicator() {
 // Инициализируем дефолтный аватар
 defaultAvatarURL = createDefaultAvatar();
 
+// Импортируем функцию проверки соединения с Supabase
+import { checkSupabaseConnection } from './supabase-check.js';
+
 // Загрузка данных из Supabase
 async function loadData() {
     try {
@@ -174,20 +177,34 @@ async function loadData() {
         console.log('ID тренировки из URL:', trainingId);
 
         // Проверяем, что клиент Supabase инициализирован правильно
-        if (!supabase || !supabase.from) {
-            throw new Error('Клиент Supabase не инициализирован правильно');
+        if (!supabase) {
+            console.error('Клиент Supabase не определен');
+            throw new Error('Клиент Supabase не определен');
+        }
+
+        if (!supabase.from) {
+            console.error('Метод supabase.from не определен');
+            throw new Error('Метод supabase.from не определен');
         }
 
         // Проверяем соединение с Supabase
         try {
-            const { error: healthCheckError } = await supabase.from('players').select('count', { count: 'exact', head: true });
-            if (healthCheckError) {
-                console.error('Ошибка при проверке соединения с Supabase:', healthCheckError);
-                throw healthCheckError;
+            console.log('Выполняем проверку соединения с Supabase...');
+
+            const connectionResult = await checkSupabaseConnection();
+            if (!connectionResult) {
+                throw new Error('Не удалось установить соединение с Supabase');
             }
+
             console.log('Соединение с Supabase установлено успешно');
         } catch (healthCheckError) {
             console.error('Ошибка при проверке соединения с Supabase:', healthCheckError);
+
+            // Отображаем ошибку на странице
+            if (typeof window.showSupabaseError === 'function') {
+                window.showSupabaseError(healthCheckError);
+            }
+
             throw healthCheckError;
         }
 
@@ -244,28 +261,52 @@ async function loadData() {
         return true;
     } catch (error) {
         console.error('Ошибка при загрузке данных:', error);
-        
+
         // Проверяем тип ошибки
-        if (error.message && error.message.includes('No API key found in request')) {
-            console.error('Ошибка API ключа Supabase. Перезагрузка страницы...');
-            alert('Ошибка соединения с сервером. Страница будет перезагружена.');
-            // Перезагружаем страницу
-            window.location.reload();
-            return;
+        if (error.message && (
+            error.message.includes('No API key found in request') ||
+            error.message.includes('API key') ||
+            error.message.includes('apikey')
+        )) {
+            console.error('Ошибка API ключа Supabase:', error.message);
+
+            // Отображаем ошибку на странице
+            if (typeof window.showSupabaseError === 'function') {
+                window.showSupabaseError({
+                    message: 'Ошибка API ключа Supabase. Пожалуйста, проверьте настройки соединения с сервером.'
+                });
+            } else {
+                alert('Ошибка соединения с сервером. Страница будет перезагружена.');
+                // Перезагружаем страницу
+                window.location.reload();
+            }
+            return false;
         }
-        
+
         // Проверяем, есть ли проблемы с сетью
         if (!navigator.onLine) {
-            alert('Отсутствует подключение к интернету. Пожалуйста, проверьте ваше соединение и попробуйте снова.');
+            // Отображаем ошибку на странице
+            if (typeof window.showSupabaseError === 'function') {
+                window.showSupabaseError({
+                    message: 'Отсутствует подключение к интернету. Пожалуйста, проверьте ваше соединение и попробуйте снова.'
+                });
+            } else {
+                alert('Отсутствует подключение к интернету. Пожалуйста, проверьте ваше соединение и попробуйте снова.');
+            }
         } else {
-            alert('Произошла ошибка при загрузке данных. Пожалуйста, попробуйте позже.\n\nДетали ошибки: ' + (error.message || error));
+            // Отображаем ошибку на странице
+            if (typeof window.showSupabaseError === 'function') {
+                window.showSupabaseError({
+                    message: 'Произошла ошибка при загрузке данных: ' + (error.message || error)
+                });
+            } else {
+                alert('Произошла ошибка при загрузке данных. Пожалуйста, попробуйте позже.\n\nДетали ошибки: ' + (error.message || error));
+            }
         }
-        
-        // Возвращаемся на главную страницу
-        setTimeout(() => {
-            window.location.href = 'index.html';
-        }, 3000);
-        
+
+        // Скрываем индикатор загрузки
+        hideLoadingIndicator();
+
         return false;
     } finally {
         // Скрываем индикатор загрузки

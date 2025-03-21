@@ -51,6 +51,63 @@
     </div>
 
     <!-- Импортируем Supabase JS из CDN -->
+    <script>
+        // Функция для отображения ошибки соединения с Supabase
+        window.showSupabaseError = function(error) {
+            console.error('Ошибка соединения с Supabase:', error);
+
+            // Создаем элемент для отображения ошибки
+            const errorElement = document.createElement('div');
+            errorElement.className = 'error-message';
+            errorElement.innerHTML = `
+                <h2>Ошибка соединения с сервером</h2>
+                <p>${error.message || error}</p>
+                <button onclick="window.location.reload()">Попробовать снова</button>
+            `;
+
+            // Добавляем стили для элемента ошибки
+            const style = document.createElement('style');
+            style.textContent = `
+                .error-message {
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background-color: #fff;
+                    padding: 20px;
+                    border-radius: 5px;
+                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+                    z-index: 9999;
+                    text-align: center;
+                }
+
+                .error-message h2 {
+                    color: #e74c3c;
+                    margin-top: 0;
+                }
+
+                .error-message button {
+                    background-color: #3498db;
+                    color: #fff;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 3px;
+                    cursor: pointer;
+                    margin-top: 10px;
+                }
+
+                .error-message button:hover {
+                    background-color: #2980b9;
+                }
+            `;
+
+            // Добавляем стили и элемент ошибки на страницу
+            document.head.appendChild(style);
+            document.body.appendChild(errorElement);
+        };
+    </script>
+    <script type="module" src="supabase.js"></script>
+    <script type="module" src="supabase-check.js"></script>
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
         window.createClient = createClient;
