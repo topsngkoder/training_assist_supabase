@@ -957,194 +957,329 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 // Отображение кортов
 function renderCourts() {
-    console.log('Отображение кортов:', courtsData);
-
-    // Очищаем контейнер кортов
     courtsContainer.innerHTML = '';
 
-    // Проверяем, что courtsData определен и является массивом
-    if (!Array.isArray(courtsData) || courtsData.length === 0) {
-        console.warn('Нет данных о кортах для отображения');
-        courtsContainer.innerHTML = '<p class="no-data">Нет данных о кортах</p>';
+    courtsData.forEach(court => {
+        const courtCard = document.createElement('div');
+        courtCard.classList.add('court-card');
+
+        // Создаем HTML для игроков на стороне 1
+        let side1PlayersHtml = '';
+        if (court.side1 && court.side1.length > 0) {
+            court.side1.forEach(player => {
+                const photoSrc = player.photo || defaultAvatarURL;
+                side1PlayersHtml += `
+                    <div class="court-player">
+                        <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
+                        <div class="player-name-container">
+                            <div>${player.firstName} ${player.lastName}</div>
+                            <span class="remove-player" data-court="${court.id}" data-side="1" data-index="${court.side1.indexOf(player)}">&times;</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Создаем HTML для игроков на стороне 2
+        let side2PlayersHtml = '';
+        if (court.side2 && court.side2.length > 0) {
+            court.side2.forEach(player => {
+                const photoSrc = player.photo || defaultAvatarURL;
+                side2PlayersHtml += `
+                    <div class="court-player">
+                        <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
+                        <div class="player-name-container">
+                            <div>${player.firstName} ${player.lastName}</div>
+                            <span class="remove-player" data-court="${court.id}" data-side="2" data-index="${court.side2.indexOf(player)}">&times;</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        courtCard.innerHTML = `
+            <div class="court-header">
+                <div class="court-title">${court.name}</div>
+            </div>
+            <div class="court-sides">
+                <div class="court-side side1">
+                    <div class="court-players">
+                        ${side1PlayersHtml}
+                    </div>
+                    <div class="court-buttons">
+                        <button class="btn quick-add-btn ${court.side1.length >= 2 || queuePlayers.length === 0 ? 'disabled' : ''}"
+                                data-court="${court.id}"
+                                data-side="1"
+                                ${court.side1.length >= 2 || queuePlayers.length === 0 ? 'disabled' : ''}>
+                            Очередь
+                        </button>
+                        <button class="btn select-add-btn ${court.side1.length >= 2 ? 'disabled' : ''}"
+                                data-court="${court.id}"
+                                data-side="1"
+                                ${court.side1.length >= 2 ? 'disabled' : ''}>
+                            +
+                        </button>
+                    </div>
+                </div>
+                <div class="court-side side2">
+                    <div class="court-players">
+                        ${side2PlayersHtml}
+                    </div>
+                    <div class="court-buttons">
+                        <button class="btn quick-add-btn ${court.side2.length >= 2 || queuePlayers.length === 0 ? 'disabled' : ''}"
+                                data-court="${court.id}"
+                                data-side="2"
+                                ${court.side2.length >= 2 || queuePlayers.length === 0 ? 'disabled' : ''}>
+                            Очередь
+                        </button>
+                        <button class="btn select-add-btn ${court.side2.length >= 2 ? 'disabled' : ''}"
+                                data-court="${court.id}"
+                                data-side="2"
+                                ${court.side2.length >= 2 ? 'disabled' : ''}>
+                            +
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="court-actions">
+                <button class="btn finish-game-btn" data-court="${court.id}">Игра завершена</button>
+            </div>
+        `;
+
+        courtsContainer.appendChild(courtCard);
+    });
+
+    // Добавляем обработчики для кнопок
+    document.querySelectorAll('.quick-add-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courtId = parseInt(this.getAttribute('data-court'));
+            const side = parseInt(this.getAttribute('data-side'));
+            addFirstPlayerFromQueue(courtId, side);
+        });
+    });
+
+    document.querySelectorAll('.select-add-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courtId = parseInt(this.getAttribute('data-court'));
+            const side = parseInt(this.getAttribute('data-side'));
+            showPlayerSelectionDialog(courtId, side);
+        });
+    });
+
+    document.querySelectorAll('.finish-game-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courtId = parseInt(this.getAttribute('data-court'));
+            finishGame(courtId);
+        });
+    });
+
+    // Добавляем обработчики для крестиков удаления игроков
+    document.querySelectorAll('.remove-player').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courtId = parseInt(this.getAttribute('data-court'));
+            const side = parseInt(this.getAttribute('data-side'));
+            const playerIndex = parseInt(this.getAttribute('data-index'));
+            removePlayerFromCourt(courtId, side, playerIndex);
+        });
+    });
+}
+
+// Быстрое добавление первого игрока из очереди на корт
+function addFirstPlayerFromQueue(courtId, side) {
+    if (queuePlayers.length === 0) {
+        alert('Нет доступных игроков в очереди');
         return;
     }
 
-    // Отображаем каждый корт
-    courtsData.forEach(court => {
-        // Создаем элемент корта
-        const courtElement = document.createElement('div');
-        courtElement.className = 'court';
-        courtElement.dataset.courtId = court.id;
+    // Проверяем, есть ли место на выбранной стороне корта
+    const court = courtsData.find(c => c.id === courtId);
+    if (!court) return;
 
-        // Создаем заголовок корта
-        const courtHeader = document.createElement('div');
-        courtHeader.className = 'court-header';
-        courtHeader.textContent = court.name;
+    const sideArray = side === 1 ? court.side1 : court.side2;
+    if (sideArray.length >= 2) {
+        alert('На этой стороне уже максимальное количество игроков (2)');
+        return;
+    }
 
-        // Создаем содержимое корта
-        const courtContent = document.createElement('div');
-        courtContent.className = 'court-content';
+    // Берем первого игрока из очереди
+    const player = queuePlayers[0];
 
-        // Создаем стороны корта
-        const side1 = document.createElement('div');
-        side1.className = 'court-side';
-        side1.dataset.side = '1';
+    // Добавляем игрока на корт
+    const success = addPlayerToCourt(courtId, side, player);
 
-        const side2 = document.createElement('div');
-        side2.className = 'court-side';
-        side2.dataset.side = '2';
+    if (success !== false) {
+        // Удаляем игрока из очереди
+        queuePlayers.splice(0, 1);
 
-        // Добавляем игроков на стороны корта
-        if (court.side1 && court.side1.length > 0) {
-            court.side1.forEach(player => {
-                const playerElement = createPlayerElement(player);
-                side1.appendChild(playerElement);
-            });
-        } else {
-            side1.innerHTML = '<div class="empty-side">Перетащите игрока сюда</div>';
-        }
-
-        if (court.side2 && court.side2.length > 0) {
-            court.side2.forEach(player => {
-                const playerElement = createPlayerElement(player);
-                side2.appendChild(playerElement);
-            });
-        } else {
-            side2.innerHTML = '<div class="empty-side">Перетащите игрока сюда</div>';
-        }
-
-        // Создаем элемент для таймера
-        const timerElement = document.createElement('div');
-        timerElement.className = 'game-timer';
-        timerElement.id = `timer-${court.id}`;
-        timerElement.style.display = 'none';
-        timerElement.textContent = '00:00';
-
-        // Создаем кнопки управления игрой
-        const gameControls = document.createElement('div');
-        gameControls.className = 'game-controls';
-
-        // Кнопка "Начать игру"
-        const startButton = document.createElement('button');
-        startButton.className = 'start-game-btn';
-        startButton.dataset.court = court.id;
-        startButton.textContent = 'Начать игру';
-        startButton.onclick = () => startGame(court.id);
-
-        // Контейнер для кнопок "Отмена" и "Игра завершена"
-        const gameActions = document.createElement('div');
-        gameActions.className = 'game-actions';
-        gameActions.id = `game-actions-${court.id}`;
-        gameActions.style.display = 'none';
-
-        // Кнопка "Отмена"
-        const cancelButton = document.createElement('button');
-        cancelButton.className = 'cancel-game-btn';
-        cancelButton.dataset.court = court.id;
-        cancelButton.textContent = 'Отмена';
-        cancelButton.onclick = () => cancelGame(court.id);
-
-        // Кнопка "Игра завершена"
-        const finishButton = document.createElement('button');
-        finishButton.className = 'finish-game-btn';
-        finishButton.dataset.court = court.id;
-        finishButton.textContent = 'Игра завершена';
-        finishButton.onclick = () => finishGame(court.id);
-
-        // Добавляем кнопки в контейнер
-        gameActions.appendChild(cancelButton);
-        gameActions.appendChild(finishButton);
-
-        // Добавляем кнопки в элемент управления игрой
-        gameControls.appendChild(startButton);
-        gameControls.appendChild(gameActions);
-
-        // Собираем элемент корта
-        courtContent.appendChild(side1);
-        courtContent.appendChild(side2);
-        courtElement.appendChild(courtHeader);
-        courtElement.appendChild(courtContent);
-        courtElement.appendChild(timerElement);
-        courtElement.appendChild(gameControls);
-
-        // Добавляем корт в контейнер
-        courtsContainer.appendChild(courtElement);
-    });
-
-    // Инициализируем drag-and-drop для игроков
-    initDragAndDrop();
+        // Обновляем отображение
+        renderCourts();
+        renderQueue();
+    }
 }
 
-// Создание элемента игрока
-function createPlayerElement(player) {
-    const playerElement = document.createElement('div');
-    playerElement.className = 'player';
-    playerElement.dataset.playerId = player.id;
-    playerElement.draggable = true;
-
-    // Добавляем обработчики событий для drag-and-drop
-    playerElement.ondragstart = handleDragStart;
-
-    // Создаем аватар игрока
-    const playerAvatar = document.createElement('div');
-    playerAvatar.className = 'player-avatar';
-
-    // Если у игрока есть фото, используем его, иначе создаем аватар с инициалами
-    if (player.photo) {
-        const avatarImg = document.createElement('img');
-        avatarImg.src = player.photo;
-        avatarImg.alt = `${player.firstName} ${player.lastName}`;
-        playerAvatar.appendChild(avatarImg);
-    } else {
-        const avatarImg = document.createElement('img');
-        avatarImg.src = createInitialsAvatar(player.firstName, player.lastName);
-        avatarImg.alt = `${player.firstName} ${player.lastName}`;
-        playerAvatar.appendChild(avatarImg);
+// Показать диалог выбора игрока для добавления на корт
+function showPlayerSelectionDialog(courtId, side) {
+    if (queuePlayers.length === 0) {
+        alert('Нет доступных игроков в очереди');
+        return;
     }
 
-    // Создаем информацию об игроке
-    const playerInfo = document.createElement('div');
-    playerInfo.className = 'player-info';
+    // Проверяем, есть ли место на выбранной стороне корта
+    const court = courtsData.find(c => c.id === courtId);
+    if (!court) return;
 
-    // Имя игрока
-    const playerName = document.createElement('div');
-    playerName.className = 'player-name';
-    playerName.textContent = `${player.firstName} ${player.lastName}`;
-
-    // Рейтинг игрока
-    const playerRating = document.createElement('div');
-    playerRating.className = 'player-rating';
-    playerRating.textContent = player.rating ? `Рейтинг: ${player.rating}` : '';
-
-    // Собираем элемент игрока
-    playerInfo.appendChild(playerName);
-    if (player.rating) {
-        playerInfo.appendChild(playerRating);
+    const sideArray = side === 1 ? court.side1 : court.side2;
+    if (sideArray.length >= 2) {
+        alert('На этой стороне уже максимальное количество игроков (2)');
+        return;
     }
 
-    playerElement.appendChild(playerAvatar);
-    playerElement.appendChild(playerInfo);
+    // Создаем модальное окно для выбора игрока
+    const modal = document.createElement('div');
+    modal.classList.add('player-selection-modal');
 
-    return playerElement;
+    const modalContent = document.createElement('div');
+    modalContent.classList.add('player-selection-modal-content');
+
+    // Заголовок модального окна
+    const modalHeader = document.createElement('div');
+    modalHeader.classList.add('player-selection-modal-header');
+    modalHeader.innerHTML = `
+        <h3>Выберите игрока</h3>
+        <span class="close-modal">&times;</span>
+    `;
+
+    // Список игроков
+    const playersList = document.createElement('div');
+    playersList.classList.add('player-selection-list');
+
+    queuePlayers.forEach((player, index) => {
+        const playerItem = document.createElement('div');
+        playerItem.classList.add('player-selection-item');
+
+        const photoSrc = player.photo || defaultAvatarURL;
+
+        playerItem.innerHTML = `
+            <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="player-selection-photo">
+            <span class="player-selection-name">${player.firstName} ${player.lastName}</span>
+        `;
+
+        // Добавляем обработчик клика для выбора игрока
+        playerItem.addEventListener('click', function() {
+            // Добавляем выбранного игрока на корт
+            const success = addPlayerToCourt(courtId, side, player);
+
+            if (success !== false) {
+                // Удаляем игрока из очереди
+                queuePlayers.splice(index, 1);
+
+                // Обновляем отображение
+                renderCourts();
+                renderQueue();
+
+                // Закрываем модальное окно
+                document.body.removeChild(modal);
+            }
+        });
+
+        playersList.appendChild(playerItem);
+    });
+
+    // Собираем модальное окно
+    modalContent.appendChild(modalHeader);
+    modalContent.appendChild(playersList);
+    modal.appendChild(modalContent);
+
+    // Добавляем обработчик для закрытия модального окна
+    const closeBtn = modalHeader.querySelector('.close-modal');
+    closeBtn.addEventListener('click', function() {
+        document.body.removeChild(modal);
+    });
+
+    // Добавляем обработчик для закрытия модального окна при клике вне его
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+
+    // Добавляем модальное окно в DOM
+    document.body.appendChild(modal);
+}
+
+// Добавление игрока на корт
+function addPlayerToCourt(courtId, side, player) {
+    // Находим корт
+    const court = courtsData.find(c => c.id === courtId);
+    if (!court) return false;
+
+    // Проверяем, есть ли место на выбранной стороне корта
+    const sideArray = side === 1 ? court.side1 : court.side2;
+    if (sideArray.length >= 2) {
+        alert('На этой стороне уже максимальное количество игроков (2)');
+        return false;
+    }
+
+    // Добавляем игрока на корт
+    sideArray.push(player);
+
+    // Сохраняем состояние
+    saveTrainingStateToSupabase().catch(error => {
+        console.error('Ошибка при сохранении состояния:', error);
+    });
+
+    return true;
+}
+
+// Удаление игрока с корта
+function removePlayerFromCourt(courtId, side, playerIndex) {
+    // Находим корт
+    const court = courtsData.find(c => c.id === courtId);
+    if (!court) return;
+
+    // Получаем массив игроков на выбранной стороне
+    const sideArray = side === 1 ? court.side1 : court.side2;
+    if (playerIndex < 0 || playerIndex >= sideArray.length) return;
+
+    // Получаем игрока
+    const player = sideArray[playerIndex];
+
+    // Удаляем игрока с корта
+    sideArray.splice(playerIndex, 1);
+
+    // Добавляем игрока в очередь
+    queuePlayers.push(player);
+
+    // Обновляем отображение
+    renderCourts();
+    renderQueue();
+
+    // Сохраняем состояние
+    saveTrainingStateToSupabase().catch(error => {
+        console.error('Ошибка при сохранении состояния:', error);
+    });
 }
 
 // Отображение очереди игроков
 function renderQueue() {
-    console.log('Отображение очереди игроков:', queuePlayers);
-
-    // Очищаем контейнер очереди
     playersQueue.innerHTML = '';
 
-    // Проверяем, что queuePlayers определен и является массивом
     if (!Array.isArray(queuePlayers) || queuePlayers.length === 0) {
-        console.warn('Нет игроков в очереди для отображения');
         playersQueue.innerHTML = '<p class="no-data">Нет игроков в очереди</p>';
         return;
     }
 
-    // Отображаем каждого игрока в очереди
     queuePlayers.forEach(player => {
-        const playerElement = createPlayerElement(player);
+        const playerElement = document.createElement('div');
+        playerElement.classList.add('queue-player');
+
+        const photoSrc = player.photo || defaultAvatarURL;
+
+        playerElement.innerHTML = `
+            <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="queue-player-photo">
+            <span class="queue-player-name">${player.firstName} ${player.lastName}</span>
+        `;
+
         playersQueue.appendChild(playerElement);
     });
 }
@@ -1255,41 +1390,89 @@ function cancelGame(courtId) {
 
 // Функция для завершения игры
 function finishGame(courtId) {
-    console.log(`Завершение игры на корте ${courtId}`);
-
     // Получаем данные корта
     const court = courtsData.find(c => c.id === parseInt(courtId));
-    if (!court) {
-        console.error(`Корт с ID ${courtId} не найден`);
+    if (!court) return;
+
+    // Проверяем, что на обеих сторонах есть игроки
+    if (!court.side1 || court.side1.length === 0 || !court.side2 || court.side2.length === 0) {
+        alert('Для завершения игры необходимо иметь игроков на обеих сторонах корта');
         return;
     }
 
-    // Останавливаем таймер
-    if (gameTimers[courtId]) {
-        clearInterval(gameTimers[courtId]);
-        delete gameTimers[courtId];
+    // Спрашиваем, кто победил
+    const winner = confirm(`Победила команда ${court.name} стороны 1?`) ? 1 : 2;
+
+    // Получаем победителей и проигравших
+    const winners = winner === 1 ? court.side1 : court.side2;
+    const losers = winner === 1 ? court.side2 : court.side1;
+
+    // Обновляем счетчик побед подряд
+    winners.forEach(player => {
+        if (!consecutiveWins[player.id]) {
+            consecutiveWins[player.id] = 0;
+        }
+        consecutiveWins[player.id]++;
+    });
+
+    // Сбрасываем счетчик побед подряд для проигравших
+    losers.forEach(player => {
+        consecutiveWins[player.id] = 0;
+    });
+
+    // Обрабатываем результаты в зависимости от режима игры
+    switch (gameMode) {
+        case 'play-once':
+            // Все игроки уходят с корта и становятся в очередь
+            losers.forEach(player => queuePlayers.push(player));
+            winners.forEach(player => queuePlayers.push(player));
+
+            // Очищаем корт
+            court.side1 = [];
+            court.side2 = [];
+            break;
+
+        case 'max-twice':
+            // Победители остаются, если не выиграли дважды подряд
+            const allWinnersStay = winners.every(player => consecutiveWins[player.id] < 2);
+
+            if (allWinnersStay) {
+                // Победители остаются
+                losers.forEach(player => queuePlayers.push(player));
+
+                // Очищаем сторону проигравших
+                if (winner === 1) {
+                    court.side2 = [];
+                } else {
+                    court.side1 = [];
+                }
+            } else {
+                // Все игроки уходят с корта и становятся в очередь
+                losers.forEach(player => queuePlayers.push(player));
+                winners.forEach(player => queuePlayers.push(player));
+
+                // Очищаем корт
+                court.side1 = [];
+                court.side2 = [];
+            }
+            break;
+
+        case 'winner-stays':
+            // Победители всегда остаются
+            losers.forEach(player => queuePlayers.push(player));
+
+            // Очищаем сторону проигравших
+            if (winner === 1) {
+                court.side2 = [];
+            } else {
+                court.side1 = [];
+            }
+            break;
     }
 
-    // Удаляем время начала игры
-    delete gameStartTimes[courtId];
-
-    // Скрываем таймер
-    const timerElement = document.getElementById(`timer-${courtId}`);
-    if (timerElement) {
-        timerElement.style.display = 'none';
-    }
-
-    // Показываем кнопку "Начать" и скрываем кнопки "Отмена" и "Игра завершена"
-    const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
-    const actionsContainer = document.getElementById(`game-actions-${courtId}`);
-
-    if (startButton && actionsContainer) {
-        startButton.style.display = 'block';
-        actionsContainer.style.display = 'none';
-    }
-
-    // Обрабатываем результаты игры в зависимости от режима игры
-    handleGameResults(court);
+    // Обновляем отображение
+    renderCourts();
+    renderQueue();
 
     // Сохраняем состояние
     saveTrainingStateToSupabase().catch(error => {

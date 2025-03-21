@@ -98,7 +98,7 @@
     margin-bottom: 30px;
 }
 
-.court {
+.court-card {
     background-color: white;
     border-radius: 8px;
     padding: 15px;
@@ -107,17 +107,35 @@
 
 .court-header {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
     margin-bottom: 15px;
     padding-bottom: 10px;
     border-bottom: 1px solid #eee;
+}
+
+.court-title-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.court-title {
     font-weight: bold;
     font-size: 18px;
     color: #2196F3;
 }
 
-.court-content {
+.court-timer {
+    font-size: 16px;
+    font-weight: bold;
+    color: #FF9800;
+    background-color: #FFF3E0;
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
+.court-sides {
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -127,92 +145,45 @@
     border-radius: 5px;
     padding: 10px;
     position: relative;
-    min-height: 80px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
 }
 
-.court-side[data-side="1"] {
+.court-side.side1 {
     background-color: #ffebee; /* Бледно-красный */
     border: 1px solid #ffcdd2;
 }
 
-.court-side[data-side="2"] {
+.court-side.side2 {
     background-color: #e3f2fd; /* Бледно-синий */
     border: 1px solid #bbdefb;
 }
 
-.empty-side {
+.court-players {
+    min-height: 80px;
     display: flex;
+    flex-direction: column;
     justify-content: center;
-    align-items: center;
-    height: 60px;
-    color: #999;
-    font-style: italic;
 }
 
-.player {
+.court-player {
     display: flex;
     align-items: center;
-    padding: 8px;
+    margin-bottom: 5px;
+    padding: 5px;
     background-color: white;
     border-radius: 4px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    cursor: grab;
 }
 
-.player:active {
-    cursor: grabbing;
-}
-
-.player-avatar {
+.court-player-photo {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    overflow: hidden;
-    margin-right: 10px;
-}
-
-.player-avatar img {
-    width: 100%;
-    height: 100%;
     object-fit: cover;
+    margin-right: 10px;
+    border: 2px solid #4CAF50;
 }
 
-.player-info {
-    flex: 1;
-}
-
-.player-name {
-    font-weight: bold;
-    margin-bottom: 2px;
-}
-
-.player-rating {
-    font-size: 12px;
-    color: #666;
-}
-
-.game-timer {
-    text-align: center;
-    font-size: 24px;
-    font-weight: bold;
-    color: #FF9800;
-    margin: 10px 0;
-    padding: 5px;
-    background-color: #FFF3E0;
-    border-radius: 4px;
-}
-
-.game-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.start-game-btn, .cancel-game-btn, .finish-game-btn {
+.btn {
     padding: 8px 12px;
     border: none;
     border-radius: 4px;
@@ -221,48 +192,81 @@
     transition: background-color 0.2s;
 }
 
-.start-game-btn {
-    background-color: #4CAF50;
-    color: white;
-}
-
-.start-game-btn:hover {
-    background-color: #3e8e41;
-}
-
-.game-actions {
-    display: flex;
-    gap: 10px;
-}
-
-.cancel-game-btn {
-    background-color: #f44336;
-    color: white;
-    flex: 1;
-}
-
-.cancel-game-btn:hover {
-    background-color: #d32f2f;
-}
-
 .finish-game-btn {
-    background-color: #2196F3;
+    background-color: #FF9800;
     color: white;
-    flex: 1;
+    width: 100%;
+    margin-top: 15px;
 }
 
 .finish-game-btn:hover {
-    background-color: #1976D2;
+    background-color: #e68a00;
 }
 
-/* Стили для drag and drop */
-.court-side.drag-over {
-    background-color: #e8f5e9;
-    border: 2px dashed #4CAF50;
+.court-buttons {
+    display: flex;
+    gap: 5px;
+    margin-top: 10px;
 }
 
-.player.dragging {
-    opacity: 0.5;
+.side1 .quick-add-btn {
+    background-color: #ef5350; /* Красный */
+    color: white;
+    font-size: 14px;
+    padding: 5px 10px;
+    flex: 1;
+    min-width: 80px;
+}
+
+.side1 .quick-add-btn:hover {
+    background-color: #e53935;
+}
+
+.side1 .select-add-btn {
+    background-color: #ef5350; /* Красный */
+    color: white;
+    font-size: 16px;
+    padding: 5px 10px;
+    width: 40px;
+}
+
+.side1 .select-add-btn:hover {
+    background-color: #e53935;
+}
+
+.side2 .quick-add-btn {
+    background-color: #42a5f5; /* Синий */
+    color: white;
+    font-size: 14px;
+    padding: 5px 10px;
+    flex: 1;
+    min-width: 80px;
+}
+
+.side2 .quick-add-btn:hover {
+    background-color: #1e88e5;
+}
+
+.side2 .select-add-btn {
+    background-color: #42a5f5; /* Синий */
+    color: white;
+    font-size: 16px;
+    padding: 5px 10px;
+    width: 40px;
+}
+
+.side2 .select-add-btn:hover {
+    background-color: #1e88e5;
+}
+
+.quick-add-btn.disabled, .select-add-btn.disabled {
+    background-color: #cccccc !important;
+    color: #666666 !important;
+    cursor: not-allowed;
+}
+
+.quick-add-btn.disabled:hover, .select-add-btn.disabled:hover {
+    background-color: #cccccc !important;
 }
 
 /* Стили для игроков, играющих вторую игру подряд */
@@ -443,8 +447,31 @@
     min-height: 60px;
 }
 
-.players-queue .player {
-    margin-bottom: 5px;
+.queue-player {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: #f0f0f0;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.queue-player:hover {
+    background-color: #e0e0e0;
+}
+
+.queue-player-photo {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 8px;
+    border: 2px solid #607D8B;
+}
+
+.queue-player-name {
+    font-size: 14px;
 }
 
 .no-data {
