@@ -10,6 +10,7 @@ let trainings = [];
 let currentSortMethod = 'name'; // По умолчанию сортировка по имени
 let activeTab = 'players'; // По умолчанию активна вкладка игроков
 
+
 // DOM элементы
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-content');

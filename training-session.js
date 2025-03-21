@@ -31,33 +31,66 @@ const playersQueue = document.getElementById('players-queue');
 const backToMainBtn = document.getElementById('back-to-main');
 const gameModeSelect = document.getElementById('game-mode');
 
-// Создаем дефолтное изображение
+// Функция для создания аватара с инициалами
+function createInitialsAvatar(firstName, lastName) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    const ctx = canvas.getContext('2d');
+
+    // Получаем инициалы
+    const firstInitial = firstName ? firstName.charAt(0).toUpperCase() : '';
+    const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : '';
+    const initials = firstInitial + lastInitial;
+
+    // Генерируем цвет фона на основе имени
+    const hue = Math.abs(firstName.length * 10 + lastName.length * 7) % 360;
+    const bgColor = `hsl(${hue}, 70%, 60%)`;
+
+    // Создаем круглый фон
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    ctx.arc(100, 100, 100, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Рисуем инициалы
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 80px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(initials, 100, 100);
+
+    // Возвращаем как data URL
+    return canvas.toDataURL('image/png');
+}
+
+// Создаем дефолтное изображение (для обратной совместимости)
 function createDefaultAvatar() {
     const canvas = document.createElement('canvas');
     canvas.width = 200;
     canvas.height = 200;
     const ctx = canvas.getContext('2d');
-    
+
     // Создаем круглый фон
     ctx.fillStyle = '#e0e0e0';
     ctx.beginPath();
     ctx.arc(100, 100, 100, 0, Math.PI * 2);
     ctx.fill();
-    
+
     // Рисуем силуэт
     ctx.fillStyle = '#a0a0a0';
     ctx.beginPath();
     ctx.arc(100, 80, 40, 0, Math.PI * 2);
     ctx.fill();
-    
+
     // Рисуем тело
     ctx.beginPath();
     ctx.arc(100, 200, 60, Math.PI, 0, true);
     ctx.fill();
-    
+
     // Соединяем голову и тело
     ctx.fillRect(60, 80, 80, 80);
-    
+
     // Возвращаем как data URL
     return canvas.toDataURL('image/png');
 }
@@ -239,7 +272,8 @@ function renderCourts() {
         let side1PlayersHtml = '';
         if (court.side1.length > 0) {
             court.side1.forEach(player => {
-                const photoSrc = player.photo || defaultAvatarURL;
+                // Если у игрока нет фото, создаем аватар с инициалами
+                const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
                 // Проверяем, играет ли игрок вторую игру подряд в режиме "Не более двух раз"
                 const isSecondGame = consecutiveWins[player.id] && gameMode === 'max-twice';
 
@@ -266,7 +300,8 @@ function renderCourts() {
         let side2PlayersHtml = '';
         if (court.side2.length > 0) {
             court.side2.forEach(player => {
-                const photoSrc = player.photo || defaultAvatarURL;
+                // Если у игрока нет фото, создаем аватар с инициалами
+                const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
                 // Проверяем, играет ли игрок вторую игру подряд в режиме "Не более двух раз"
                 const isSecondGame = consecutiveWins[player.id] && gameMode === 'max-twice';
 
@@ -415,7 +450,8 @@ function renderQueue() {
         const playerElement = document.createElement('div');
         playerElement.classList.add('queue-player');
 
-        const photoSrc = player.photo || defaultAvatarURL;
+        // Если у игрока нет фото, создаем аватар с инициалами
+        const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
 
         playerElement.innerHTML = `
             <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="queue-player-photo">
