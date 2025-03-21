@@ -39,7 +39,40 @@ let currentTrainingData = null;
 // Переменная для хранения пути к старой фотографии (для удаления при обновлении)
 let oldPhotoPath = null;
 
-// Функция для создания дефолтного аватара
+// Функция для создания аватара с инициалами
+function createInitialsAvatar(firstName, lastName) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    const ctx = canvas.getContext('2d');
+
+    // Получаем инициалы
+    const firstInitial = firstName ? firstName.charAt(0).toUpperCase() : '';
+    const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : '';
+    const initials = firstInitial + lastInitial;
+
+    // Генерируем цвет фона на основе имени
+    const hue = Math.abs(firstName.length * 10 + lastName.length * 7) % 360;
+    const bgColor = `hsl(${hue}, 70%, 60%)`;
+
+    // Создаем круглый фон
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    ctx.arc(100, 100, 100, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Рисуем инициалы
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 80px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(initials, 100, 100);
+
+    // Возвращаем как data URL
+    return canvas.toDataURL('image/png');
+}
+
+// Функция для создания дефолтного аватара (для обратной совместимости)
 function createDefaultAvatar() {
     const canvas = document.createElement('canvas');
     canvas.width = 200;
@@ -160,7 +193,8 @@ function renderPlayers() {
         const playerCard = document.createElement('div');
         playerCard.classList.add('player-card');
 
-        const photoSrc = player.photo || defaultAvatarDataURL;
+        // Если у игрока нет фото, создаем аватар с инициалами
+        const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
 
         playerCard.innerHTML = `
             <div class="player-card-content">
@@ -378,7 +412,8 @@ function renderTrainings() {
             training.playerIds.forEach(playerIndex => {
                 const player = players[playerIndex];
                 if (player) {
-                    const photoSrc = player.photo || defaultAvatarDataURL;
+                    // Если у игрока нет фото, создаем аватар с инициалами
+                    const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
                     playersHtml += `
                         <div class="training-player-item">
                             <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="training-player-photo">
@@ -654,7 +689,8 @@ function fillTrainingPlayersSelection(selectedPlayerIds = []) {
         const playerItem = document.createElement('div');
         playerItem.classList.add('player-checkbox-item');
 
-        const photoSrc = player.photo || defaultAvatarDataURL;
+        // Если у игрока нет фото, создаем аватар с инициалами
+        const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
         const isChecked = selectedPlayerIds.includes(index);
 
         playerItem.innerHTML = `
