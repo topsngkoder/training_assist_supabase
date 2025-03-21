@@ -416,9 +416,6 @@ function renderQueue() {
 
         playersQueue.appendChild(playerElement);
     });
-
-    // Сохраняем состояние тренировки
-    saveTrainingState();
 }
 
 // Быстрое добавление первого игрока из очереди на корт
@@ -457,9 +454,6 @@ function addFirstPlayerFromQueue(courtId, side) {
         // Обновляем отображение
         renderCourts();
         renderQueue();
-
-        // Сохраняем состояние тренировки
-        saveTrainingState();
     }
 }
 
@@ -623,9 +617,6 @@ function removePlayerFromCourt(courtId, side, playerIndex) {
     // Обновляем отображение
     renderCourts();
     renderQueue();
-
-    // Сохраняем состояние тренировки
-    saveTrainingState();
 }
 
 // Запуск игры на корте
@@ -664,7 +655,7 @@ function startGame(courtId) {
     // Перерисовываем корты, чтобы применить ограничения на изменение состава игроков
     renderCourts();
 
-    // Сохраняем состояние тренировки
+    // Сохраняем состояние тренировки в Supabase
     saveTrainingState();
 }
 
@@ -715,7 +706,7 @@ function cancelGame(courtId) {
     // Перерисовываем корты, чтобы снять ограничения на изменение состава игроков
     renderCourts();
 
-    // Сохраняем состояние тренировки
+    // Сохраняем состояние тренировки в Supabase
     saveTrainingState();
 }
 
@@ -944,7 +935,7 @@ function finishGameAfterWinnerSelection(courtId, winningSide) {
     renderCourts();
     renderQueue();
 
-    // Сохраняем состояние тренировки
+    // Сохраняем состояние тренировки в Supabase после завершения игры
     saveTrainingState();
 }
 
@@ -958,7 +949,7 @@ gameModeSelect.addEventListener('change', function() {
     gameMode = this.value;
     console.log(`Выбран режим игры: ${gameMode}`);
 
-    // Сохраняем состояние тренировки при изменении режима игры
+    // Сохраняем состояние тренировки в Supabase при изменении режима игры
     saveTrainingState();
 });
 
@@ -1227,7 +1218,4 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Асинхронное сохранение в Supabase может не успеть выполниться перед закрытием страницы,
         // поэтому мы полагаемся на localStorage в этом случае
     });
-
-    // Периодически сохраняем состояние в Supabase (каждые 30 секунд)
-    setInterval(saveTrainingState, 30000);
 });
