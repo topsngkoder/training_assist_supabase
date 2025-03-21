@@ -91,6 +91,19 @@
     margin: 5px 0;
 }
 
+.save-state-btn {
+    background-color: #2196F3;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.save-state-btn:hover {
+    background-color: #1976D2;
+}
+
 .courts-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
