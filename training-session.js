@@ -223,15 +223,20 @@ function renderCourts() {
         if (court.side1.length > 0) {
             court.side1.forEach(player => {
                 const photoSrc = player.photo || defaultAvatarURL;
-                // Проверяем, играет ли игрок вторую игру подряд
+                // Проверяем, играет ли игрок вторую игру подряд в режиме "Не более двух раз"
                 const isSecondGame = consecutiveWins[player.id] && gameMode === 'max-twice';
+
+                // Получаем количество побед подряд для режима "Победитель остается всегда"
+                const winStreak = gameMode === 'winner-stays' && consecutiveWins[player.id] ? consecutiveWins[player.id] : 0;
+
                 side1PlayersHtml += `
-                    <div class="court-player ${isSecondGame ? 'second-game' : ''}">
+                    <div class="court-player ${isSecondGame ? 'second-game' : ''} ${winStreak > 0 ? 'win-streak' : ''}">
                         <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
                         <div class="player-name-container">
                             <div>
                                 ${player.firstName} ${player.lastName}
                                 ${isSecondGame ? '<span class="second-game-badge" title="2-я игра">2</span>' : ''}
+                                ${winStreak > 0 ? `<span class="win-streak-badge" title="Побед подряд: ${winStreak}">${winStreak}</span>` : ''}
                             </div>
                             ${isGameInProgress ? '' : `<span class="remove-player" data-court="${court.id}" data-side="1" data-index="${court.side1.indexOf(player)}">&times;</span>`}
                         </div>
@@ -245,15 +250,20 @@ function renderCourts() {
         if (court.side2.length > 0) {
             court.side2.forEach(player => {
                 const photoSrc = player.photo || defaultAvatarURL;
-                // Проверяем, играет ли игрок вторую игру подряд
+                // Проверяем, играет ли игрок вторую игру подряд в режиме "Не более двух раз"
                 const isSecondGame = consecutiveWins[player.id] && gameMode === 'max-twice';
+
+                // Получаем количество побед подряд для режима "Победитель остается всегда"
+                const winStreak = gameMode === 'winner-stays' && consecutiveWins[player.id] ? consecutiveWins[player.id] : 0;
+
                 side2PlayersHtml += `
-                    <div class="court-player ${isSecondGame ? 'second-game' : ''}">
+                    <div class="court-player ${isSecondGame ? 'second-game' : ''} ${winStreak > 0 ? 'win-streak' : ''}">
                         <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
                         <div class="player-name-container">
                             <div>
                                 ${player.firstName} ${player.lastName}
                                 ${isSecondGame ? '<span class="second-game-badge" title="2-я игра">2</span>' : ''}
+                                ${winStreak > 0 ? `<span class="win-streak-badge" title="Побед подряд: ${winStreak}">${winStreak}</span>` : ''}
                             </div>
                             ${isGameInProgress ? '' : `<span class="remove-player" data-court="${court.id}" data-side="2" data-index="${court.side2.indexOf(player)}">&times;</span>`}
                         </div>
@@ -873,16 +883,29 @@ function finishGameAfterWinnerSelection(courtId, winningSide) {
 
         // Отправляем проигравших в конец очереди
         losers.forEach(player => {
+            // Сбрасываем счетчик побед для проигравших
+            delete consecutiveWins[player.id];
             queuePlayers.push(player);
+        });
+
+        // Увеличиваем счетчик побед для победителей
+        winners.forEach(player => {
+            // Если у игрока уже есть победы, увеличиваем счетчик
+            if (consecutiveWins[player.id]) {
+                consecutiveWins[player.id]++;
+            } else {
+                // Иначе устанавливаем счетчик в 1
+                consecutiveWins[player.id] = 1;
+            }
         });
 
         // Возвращаем победителей на корт
         if (winningSide === 1) {
-            court.side1 = winners;
+            court.side1 = [...winners]; // Создаем копию массива
             court.side2 = [];
         } else {
             court.side1 = [];
-            court.side2 = winners;
+            court.side2 = [...winners]; // Создаем копию массива
         }
     }
 
