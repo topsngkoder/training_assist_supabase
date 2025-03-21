@@ -4,7 +4,7 @@ import supabase from './supabase.js';
 // Инициализация данных
 let players = [];
 let trainings = [];
-let currentSortMethod = 'name'; // По умолчанию сортировка по имени
+let currentSortMethod = 'name'; // По умолчанию сортировка по фамилии
 let activeTab = 'players'; // По умолчанию активна вкладка игроков
 
 
@@ -149,7 +149,7 @@ async function loadData() {
         const { data: playersData, error: playersError } = await supabase
             .from('players')
             .select('*')
-            .order('first_name', { ascending: true });
+            .order('last_name', { ascending: true });
         
         if (playersError) throw playersError;
         
@@ -220,9 +220,19 @@ function renderPlayers() {
     const sortedPlayers = [...players];
     if (currentSortMethod === 'name') {
         sortedPlayers.sort((a, b) => {
-            const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
-            const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
-            return nameA.localeCompare(nameB);
+            // Сортировка сначала по фамилии, затем по имени
+            const lastNameA = a.lastName.toLowerCase();
+            const lastNameB = b.lastName.toLowerCase();
+
+            // Если фамилии разные, сортируем по фамилии
+            if (lastNameA !== lastNameB) {
+                return lastNameA.localeCompare(lastNameB);
+            }
+
+            // Если фамилии одинаковые, сортируем по имени
+            const firstNameA = a.firstName.toLowerCase();
+            const firstNameB = b.firstName.toLowerCase();
+            return firstNameA.localeCompare(firstNameB);
         });
     } else if (currentSortMethod === 'rating') {
         sortedPlayers.sort((a, b) => b.rating - a.rating);
