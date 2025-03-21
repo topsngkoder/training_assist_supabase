@@ -408,7 +408,7 @@ function renderTrainings() {
                         <strong>Количество кортов:</strong> ${training.courts}
                     </div>
                 </div>
-                <button class="btn start-training-btn" data-id="${training.id}">Начать тренировку</button>
+                <button class="btn start-training-btn blue-btn" data-id="${training.id}">Войти</button>
             </div>
             <div class="training-players-title">Участники:</div>
             <div class="training-players">

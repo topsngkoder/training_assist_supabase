@@ -89,6 +89,15 @@ h1, h2 {
     background-color: #0b7dda;
 }
 
+.blue-btn {
+    background-color: #2196F3;
+    color: white;
+}
+
+.blue-btn:hover {
+    background-color: #0b7dda;
+}
+
 .delete-btn {
     background-color: #f44336;
     color: white;
@@ -369,13 +378,11 @@ input[type="number"] {
 }
 
 .start-training-btn {
-    background-color: #4CAF50;
-    color: white;
     margin-left: 10px;
-}
-
-.start-training-btn:hover {
-    background-color: #45a049;
+    font-weight: bold;
+    padding: 8px 15px;
+    min-width: 80px;
+    text-align: center;
 }
 
 .training-players-title {
