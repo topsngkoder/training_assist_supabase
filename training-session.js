@@ -33,35 +33,54 @@ const gameModeSelect = document.getElementById('game-mode');
 
 // Функция для создания аватара с инициалами
 function createInitialsAvatar(firstName, lastName) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 200;
-    canvas.height = 200;
-    const ctx = canvas.getContext('2d');
+    console.log(`Создаем аватар с инициалами для: ${firstName} ${lastName}`);
 
-    // Получаем инициалы
-    const firstInitial = firstName ? firstName.charAt(0).toUpperCase() : '';
-    const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : '';
-    const initials = firstInitial + lastInitial;
+    // Проверяем, что firstName и lastName определены
+    if (!firstName || !lastName) {
+        console.warn('Имя или фамилия не определены, используем дефолтный аватар');
+        return defaultAvatarURL;
+    }
 
-    // Генерируем цвет фона на основе имени
-    const hue = Math.abs(firstName.length * 10 + lastName.length * 7) % 360;
-    const bgColor = `hsl(${hue}, 70%, 60%)`;
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 200;
+        canvas.height = 200;
+        const ctx = canvas.getContext('2d');
 
-    // Создаем круглый фон
-    ctx.fillStyle = bgColor;
-    ctx.beginPath();
-    ctx.arc(100, 100, 100, 0, Math.PI * 2);
-    ctx.fill();
+        // Получаем инициалы
+        const firstInitial = firstName.charAt(0).toUpperCase();
+        const lastInitial = lastName.charAt(0).toUpperCase();
+        const initials = firstInitial + lastInitial;
 
-    // Рисуем инициалы
-    ctx.fillStyle = 'white';
-    ctx.font = 'bold 80px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(initials, 100, 100);
+        console.log(`Инициалы: ${initials}`);
 
-    // Возвращаем как data URL
-    return canvas.toDataURL('image/png');
+        // Генерируем цвет фона на основе имени
+        const hue = Math.abs(firstName.length * 10 + lastName.length * 7) % 360;
+        const bgColor = `hsl(${hue}, 70%, 60%)`;
+
+        console.log(`Цвет фона: ${bgColor}`);
+
+        // Создаем круглый фон
+        ctx.fillStyle = bgColor;
+        ctx.beginPath();
+        ctx.arc(100, 100, 100, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Рисуем инициалы
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 80px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(initials, 100, 100);
+
+        // Возвращаем как data URL
+        const dataUrl = canvas.toDataURL('image/png');
+        console.log('Аватар с инициалами успешно создан');
+        return dataUrl;
+    } catch (error) {
+        console.error('Ошибка при создании аватара с инициалами:', error);
+        return defaultAvatarURL;
+    }
 }
 
 // Создаем дефолтное изображение (для обратной совместимости)
