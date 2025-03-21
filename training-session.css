@@ -393,6 +393,7 @@
 .start-game-btn {
     background-color: #4CAF50;
     color: white;
+    width: 100%;
 }
 
 .start-game-btn:hover {
@@ -412,6 +413,7 @@
 .cancel-game-btn {
     background-color: #9E9E9E;
     color: white;
+    flex: 1;
 }
 
 .cancel-game-btn:hover {
@@ -421,6 +423,7 @@
 .finish-game-btn {
     background-color: #FF9800;
     color: white;
+    flex: 1;
 }
 
 .finish-game-btn:hover {
@@ -430,6 +433,7 @@
 .game-in-progress-actions {
     display: flex;
     gap: 10px;
+    width: 100%;
 }
 
 .queue-section {

@@ -997,9 +997,15 @@ function renderCourts() {
             });
         }
 
+        // Проверяем, идет ли игра на этом корте
+        const isGameInProgress = gameStartTimes[court.id] !== undefined;
+
         courtCard.innerHTML = `
             <div class="court-header">
-                <div class="court-title">${court.name}</div>
+                <div class="court-title-container">
+                    <div class="court-title">${court.name}</div>
+                </div>
+                <div class="court-timer" id="timer-${court.id}" style="display: ${isGameInProgress ? 'block' : 'none'}">00:00</div>
             </div>
             <div class="court-sides">
                 <div class="court-side side1">
@@ -1042,11 +1048,27 @@ function renderCourts() {
                 </div>
             </div>
             <div class="court-actions">
-                <button class="btn finish-game-btn" data-court="${court.id}">Игра завершена</button>
+                <button class="btn start-game-btn" data-court="${court.id}" style="display: ${isGameInProgress ? 'none' : 'block'}">Начать игру</button>
+                <div class="game-in-progress-actions" id="game-actions-${court.id}" style="display: ${isGameInProgress ? 'flex' : 'none'}">
+                    <button class="btn cancel-game-btn" data-court="${court.id}">Отмена</button>
+                    <button class="btn finish-game-btn" data-court="${court.id}">Игра завершена</button>
+                </div>
             </div>
         `;
 
         courtsContainer.appendChild(courtCard);
+
+        // Если игра уже идет, обновляем таймер
+        if (isGameInProgress) {
+            updateTimer(court.id);
+
+            // Запускаем таймер, если он еще не запущен
+            if (!gameTimers[court.id]) {
+                gameTimers[court.id] = setInterval(() => {
+                    updateTimer(court.id);
+                }, 1000);
+            }
+        }
     });
 
     // Добавляем обработчики для кнопок
@@ -1063,6 +1085,20 @@ function renderCourts() {
             const courtId = parseInt(this.getAttribute('data-court'));
             const side = parseInt(this.getAttribute('data-side'));
             showPlayerSelectionDialog(courtId, side);
+        });
+    });
+
+    document.querySelectorAll('.start-game-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courtId = parseInt(this.getAttribute('data-court'));
+            startGame(courtId);
+        });
+    });
+
+    document.querySelectorAll('.cancel-game-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const courtId = parseInt(this.getAttribute('data-court'));
+            cancelGame(courtId);
         });
     });
 
