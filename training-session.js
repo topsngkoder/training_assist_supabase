@@ -136,6 +136,31 @@ function createDefaultAvatar() {
     return canvas.toDataURL('image/png');
 }
 
+// Функция для отображения индикатора загрузки
+function showLoadingIndicator() {
+    // Создаем элемент индикатора загрузки, если его еще нет
+    if (!document.getElementById('loading-indicator')) {
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.id = 'loading-indicator';
+        loadingIndicator.className = 'loading-overlay';
+        loadingIndicator.innerHTML = `
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Загрузка данных...</div>
+        `;
+        document.body.appendChild(loadingIndicator);
+    } else {
+        document.getElementById('loading-indicator').style.display = 'flex';
+    }
+}
+
+// Функция для скрытия индикатора загрузки
+function hideLoadingIndicator() {
+    const loadingIndicator = document.getElementById('loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+    }
+}
+
 // Инициализируем дефолтный аватар
 defaultAvatarURL = createDefaultAvatar();
 
@@ -144,6 +169,27 @@ async function loadData() {
     try {
         // Показываем индикатор загрузки
         showLoadingIndicator();
+
+        console.log('Загрузка данных из Supabase...');
+        console.log('ID тренировки из URL:', trainingId);
+
+        // Проверяем, что клиент Supabase инициализирован правильно
+        if (!supabase || !supabase.from) {
+            throw new Error('Клиент Supabase не инициализирован правильно');
+        }
+
+        // Проверяем соединение с Supabase
+        try {
+            const { error: healthCheckError } = await supabase.from('players').select('count', { count: 'exact', head: true });
+            if (healthCheckError) {
+                console.error('Ошибка при проверке соединения с Supabase:', healthCheckError);
+                throw healthCheckError;
+            }
+            console.log('Соединение с Supabase установлено успешно');
+        } catch (healthCheckError) {
+            console.error('Ошибка при проверке соединения с Supabase:', healthCheckError);
+            throw healthCheckError;
+        }
 
         // Загружаем игроков
         const { data: playersData, error: playersError } = await supabase
@@ -180,11 +226,7 @@ async function loadData() {
             // Находим всех игроков для этой тренировки
             const playerIds = trainingPlayersData
                 .filter(tp => tp.training_id === training.id)
-                .map(tp => {
-                    // Находим индекс игрока в массиве players
-                    return players.findIndex(p => p.id === tp.player_id);
-                })
-                .filter(index => index !== -1); // Убираем несуществующих игроков
+                .map(tp => tp.player_id);
 
             return {
                 id: training.id,
@@ -202,7 +244,28 @@ async function loadData() {
         return true;
     } catch (error) {
         console.error('Ошибка при загрузке данных:', error);
-        alert('Произошла ошибка при загрузке данных. Пожалуйста, попробуйте позже.');
+        
+        // Проверяем тип ошибки
+        if (error.message && error.message.includes('No API key found in request')) {
+            console.error('Ошибка API ключа Supabase. Перезагрузка страницы...');
+            alert('Ошибка соединения с сервером. Страница будет перезагружена.');
+            // Перезагружаем страницу
+            window.location.reload();
+            return;
+        }
+        
+        // Проверяем, есть ли проблемы с сетью
+        if (!navigator.onLine) {
+            alert('Отсутствует подключение к интернету. Пожалуйста, проверьте ваше соединение и попробуйте снова.');
+        } else {
+            alert('Произошла ошибка при загрузке данных. Пожалуйста, попробуйте позже.\n\nДетали ошибки: ' + (error.message || error));
+        }
+        
+        // Возвращаемся на главную страницу
+        setTimeout(() => {
+            window.location.href = 'index.html';
+        }, 3000);
+        
         return false;
     } finally {
         // Скрываем индикатор загрузки
@@ -226,6 +289,8 @@ function initTrainingSession() {
         window.location.href = 'index.html';
         return;
     }
+
+    console.log('Найдена тренировка:', currentTraining);
     
     // Отображаем информацию о тренировке
     displayTrainingInfo();
@@ -239,6 +304,8 @@ function initTrainingSession() {
     // Отображаем корты и очередь
     renderCourts();
     renderQueue();
+
+    console.log('Инициализация тренировки завершена');
 }
 
 // Отображение информации о тренировке
@@ -274,1127 +341,347 @@ function initCourts() {
 // Инициализация очереди игроков
 function initQueue() {
     queuePlayers = [];
-    
-    if (currentTraining.playerIds && currentTraining.playerIds.length > 0) {
-        currentTraining.playerIds.forEach(playerIndex => {
-            const player = players[playerIndex];
-            if (player) {
-                queuePlayers.push({
-                    id: player.id,
-                    firstName: player.firstName,
-                    lastName: player.lastName,
-                    photo: player.photo,
-                    rating: player.rating
-                });
-            }
-        });
+
+    console.log('Инициализация очереди игроков для тренировки:', currentTraining);
+    console.log('Доступные игроки:', players);
+
+    if (!currentTraining) {
+        console.error('Текущая тренировка не определена');
+        return;
     }
-}
 
-// Отображение кортов
-function renderCourts() {
-    courtsContainer.innerHTML = '';
+    if (currentTraining.playerIds && currentTraining.playerIds.length > 0) {
+        // Получаем ID игроков из таблицы training_players
+        const trainingPlayerIds = currentTraining.playerIds;
+        console.log('ID игроков в тренировке:', trainingPlayerIds);
 
-    courtsData.forEach(court => {
-        const courtCard = document.createElement('div');
-        courtCard.classList.add('court-card');
+        // Для каждого ID игрока находим соответствующего игрока в массиве players
+        trainingPlayerIds.forEach(playerId => {
+            console.log(`Поиск игрока с ID/индексом: ${playerId}, тип: ${typeof playerId}`);
 
-        // Проверяем, запущен ли таймер для этого корта
-        const isGameInProgress = gameTimers[court.id] !== undefined;
+            // Сначала пробуем найти игрока по его ID
+            let player = players.find(p => p.id === playerId);
 
-        // Если игра в процессе, убедимся, что таймер отображается
-        if (isGameInProgress) {
-            const timerElement = document.getElementById(`timer-${court.id}`);
-            if (timerElement) {
-                timerElement.style.display = 'block';
-            }
-        }
-        
-        // Создаем HTML для игроков на стороне 1
-        let side1PlayersHtml = '';
-        if (court.side1.length > 0) {
-            court.side1.forEach(player => {
-                // Если у игрока нет фото, создаем аватар с инициалами
-                let photoSrc;
-                if (player.photo) {
-                    photoSrc = player.photo;
+            if (player) {
+                console.log(`Найден игрок по ID: ${player.firstName} ${player.lastName}`);
+            } else {
+                // Если не нашли по ID, пробуем найти по индексу
+                if (typeof playerId === 'number' && playerId >= 0 && playerId < players.length) {
+                    player = players[playerId];
+                    console.log(`Найден игрок по индексу: ${player ? player.firstName + ' ' + player.lastName : 'не найден'}`);
                 } else {
-                    photoSrc = createInitialsAvatar(player.firstName, player.lastName);
+                    // Если playerId - строка, пробуем преобразовать в число и найти по индексу
+                    const playerIndex = parseInt(playerId);
+                    if (!isNaN(playerIndex) && playerIndex >= 0 && playerIndex < players.length) {
+                        player = players[playerIndex];
+                        console.log(`Найден игрок по преобразованному индексу: ${player ? player.firstName + ' ' + player.lastName : 'не найден'}`);
+                    }
                 }
-                // Проверяем, играет ли игрок вторую игру подряд в режиме "Не более двух раз"
-                const isSecondGame = consecutiveWins[player.id] && gameMode === 'max-twice';
+            }
 
-                // Получаем количество побед подряд для режима "Победитель остается всегда"
-                const winStreak = gameMode === 'winner-stays' && consecutiveWins[player.id] ? consecutiveWins[player.id] : 0;
-
-                side1PlayersHtml += `
-                    <div class="court-player ${isSecondGame ? 'second-game' : ''} ${winStreak > 0 ? 'win-streak' : ''}">
-                        <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
-                        <div class="player-name-container">
-                            <div>
-                                ${player.firstName} ${player.lastName}
-                                ${isSecondGame ? '<span class="second-game-badge" title="2-я игра">2</span>' : ''}
-                                ${winStreak > 0 ? `<span class="win-streak-badge" title="Побед подряд: ${winStreak}">${winStreak}</span>` : ''}
-                            </div>
-                            ${isGameInProgress ? '' : `<span class="remove-player" data-court="${court.id}" data-side="1" data-index="${court.side1.indexOf(player)}">&times;</span>`}
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
-        // Создаем HTML для игроков на стороне 2
-        let side2PlayersHtml = '';
-        if (court.side2.length > 0) {
-            court.side2.forEach(player => {
-                // Если у игрока нет фото, создаем аватар с инициалами
-                let photoSrc;
-                if (player.photo) {
-                    photoSrc = player.photo;
-                } else {
-                    photoSrc = createInitialsAvatar(player.firstName, player.lastName);
-            // Проверяем, играет ли игрок вторую игру подряд в режиме "Не более двух раз"
-                const isSecondGame = consecutiveWins[player.id] && gameMode === 'max-twice';
-
-                    // Получаем количество побед подряд для режима "Победитель остается всегда"
-                const winStreak = gameMode === 'winner-stays' && consecutiveWins[player.id] ? consecutiveWins[player.id] : 0;
-
-                side2PlayersHtml += `
-                    <div class="court-player ${isSecondGame ? 'second-game' : ''} ${winStreak > 0 ? 'win-streak' : ''}">
-                        <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="court-player-photo">
-                        <div class="player-name-container">
-                            <div>
-                                ${player.firstName} ${player.lastName}
-                                ${isSecondGame ? '<span class="second-game-badge" title="2-я игра">2</span>' : ''}
-                                ${winStreak > 0 ? `<span class="win-streak-badge" title="Побед подряд: ${winStreak}">${winStreak}</span>` : ''}
-                            </div>
-                            ${isGameInProgress ? '' : `<span class="remove-player" data-court="${court.id}" data-side="2" data-index="${court.side2.indexOf(player)}">&times;</span>`}
-                                </div>
-                            </div>
-                        `;
-            });
-        }
-
-        courtCard.innerHTML = `
-            <div class="court-header">
+            if (player) {
+                // Проверяем, не добавлен ли уже этот игрок в очередь
+                const alreadyInQueue = queuePlayers.some(p => p.id === player.id);
+                
+                if (!alreadyInQueue) {
+                    queuePlayers.push({
+                        id: player.id,
+                        firstName: player.firstName,
+                        lastName: player.lastName,
+                        photo: player.photo,
+                        rating: player.rating
+                    });
+                    console.log(`Добавлен игрок в очередь: ${player.firstName} ${player.lastName}`);
                 } else {
                     console.log(`Игрок ${player.firstName} ${player.lastName} уже в очереди, пропускаем`);
                 }
-                <div class="court-title-container">
-                    <div class="court-title">${court.name}</div>
-                    <div class="court-timer" id="timer-${court.id}" style="display: ${isGameInProgress ? 'block' : 'none'}">00:00</div>
-                </div>
-            </div>
-            <div class="court-sides">
-                <div class="court-side side1">
-                    <div class="court-players">
-                        ${side1PlayersHtml}
-                    </div>
-                    <div class="court-buttons">
-                        <button class="btn quick-add-btn ${court.side1.length >= 2 || queuePlayers.length === 0 || isGameInProgress ? 'disabled' : ''}"
-                                data-court="${court.id}"
-                                data-side="1"
-                                ${court.side1.length >= 2 || queuePlayers.length === 0 || isGameInProgress ? 'disabled' : ''}>
-                            Очередь
-                        </button>
-                        <button class="btn select-add-btn ${court.side1.length >= 2 || isGameInProgress ? 'disabled' : ''}"
-                                data-court="${court.id}"
-                                data-side="1"
-                                ${court.side1.length >= 2 || isGameInProgress ? 'disabled' : ''}>
-                            +
-                        </button>
-                    </div>
-                </div>
-                <div class="court-side side2">
-                    <div class="court-players">
-                        ${side2PlayersHtml}
-                    </div>
-                    <div class="court-buttons">
-                        <button class="btn quick-add-btn ${court.side2.length >= 2 || queuePlayers.length === 0 || isGameInProgress ? 'disabled' : ''}"
-                                data-court="${court.id}"
-                                data-side="2"
-                                ${court.side2.length >= 2 || queuePlayers.length === 0 || isGameInProgress ? 'disabled' : ''}>
-                            Очередь
-                        </button>
-                        <button class="btn select-add-btn ${court.side2.length >= 2 || isGameInProgress ? 'disabled' : ''}"
-                                data-court="${court.id}"
-                                data-side="2"
-                                ${court.side2.length >= 2 || isGameInProgress ? 'disabled' : ''}>
-                            +
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="court-actions">
-                <button class="btn start-game-btn ${(court.side1.length === 0 || court.side2.length === 0 || court.side1.length > 2 || court.side2.length > 2) ? 'disabled' : ''}"
-                        data-court="${court.id}"
-                        style="display: ${isGameInProgress ? 'none' : 'block'}"
-                        ${(court.side1.length === 0 || court.side2.length === 0 || court.side1.length > 2 || court.side2.length > 2) ? 'disabled' : ''}>
-                    Начать
-                </button>
-                <div class="game-in-progress-actions" id="game-actions-${court.id}" style="display: ${isGameInProgress ? 'flex' : 'none'}">
-                    <button class="btn cancel-game-btn secondary-btn" data-court="${court.id}">Отмена</button>
-                    <button class="btn finish-game-btn" data-court="${court.id}">Игра завершена</button>
-                </div>
-            </div>
-        `;
-        
-        courtsContainer.appendChild(courtCard);
-    });
-    
-    // Добавляем обработчики для кнопок
-    document.querySelectorAll('.quick-add-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const courtId = parseInt(this.getAttribute('data-court'));
-            const side = parseInt(this.getAttribute('data-side'));
-            addFirstPlayerFromQueue(courtId, side);
-        });
-    });
-
-    document.querySelectorAll('.select-add-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const courtId = parseInt(this.getAttribute('data-court'));
-            const side = parseInt(this.getAttribute('data-side'));
-            showPlayerSelectionDialog(courtId, side);
-        });
-    });
-    
-    document.querySelectorAll('.start-game-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const courtId = parseInt(this.getAttribute('data-court'));
-            startGame(courtId);
-        });
-    });
-
-    document.querySelectorAll('.cancel-game-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const courtId = parseInt(this.getAttribute('data-court'));
-            cancelGame(courtId);
-        });
-    });
-
-    document.querySelectorAll('.finish-game-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const courtId = parseInt(this.getAttribute('data-court'));
-            finishGame(courtId);
-        });
-    });
-
-    // Добавляем обработчики для крестиков удаления игроков
-    document.querySelectorAll('.remove-player').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const courtId = parseInt(this.getAttribute('data-court'));
-            const side = parseInt(this.getAttribute('data-side'));
-            const playerIndex = parseInt(this.getAttribute('data-index'));
-            removePlayerFromCourt(courtId, side, playerIndex);
-        });
-    });
-
-    // Обновляем таймеры для кортов, где игра в процессе
-    Object.keys(gameTimers).forEach(courtId => {
-        updateTimer(parseInt(courtId));
-    });
-}
-
-// Отображение очереди игроков
-function renderQueue() {
-    playersQueue.innerHTML = '';
-
-    queuePlayers.forEach(player => {
-        const playerElement = document.createElement('div');
-        playerElement.classList.add('queue-player');
-
-        // Если у игрока нет фото, создаем аватар с инициалами
-        let photoSrc;
-        if (player.photo) {
-            photoSrc = player.photo;
-        } else {
-            photoSrc = createInitialsAvatar(player.firstName, player.lastName);
-        }
-
-        playerElement.innerHTML = `
-            <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="queue-player-photo">
-            <span class="queue-player-name">${player.firstName} ${player.lastName}</span>
-        `;
-
-        playersQueue.appendChild(playerElement);
-    });
-}
-
-// Быстрое добавление первого игрока из очереди на корт
-function addFirstPlayerFromQueue(courtId, side) {
-    if (queuePlayers.length === 0) {
-        alert('Нет доступных игроков в очереди');
-        return;
-    }
-
-    // Проверяем, есть ли место на выбранной стороне корта
-    const court = courtsData.find(c => c.id === courtId);
-    if (!court) return;
-
-    // Проверяем, не запущена ли игра на этом корте
-    if (gameTimers[courtId] !== undefined) {
-        alert('Нельзя изменять состав участников во время игры');
-        return;
-    }
-
-    const sideArray = side === 1 ? court.side1 : court.side2;
-    if (sideArray.length >= 2) {
-        alert('На этой стороне уже максимальное количество игроков (2)');
-        return;
-    }
-
-    // Берем первого игрока из очереди
-    const player = queuePlayers[0];
-
-    // Добавляем игрока на корт
-    const success = addPlayerToCourt(courtId, side, player);
-
-    if (success !== false) {
-        // Удаляем игрока из очереди
-        queuePlayers.splice(0, 1);
-
-        // Обновляем отображение
-        renderCourts();
-        renderQueue();
-    }
-}
-
-// Показать диалог выбора игрока для добавления на корт
-function showPlayerSelectionDialog(courtId, side) {
-    if (queuePlayers.length === 0) {
-        alert('Нет доступных игроков в очереди');
-        return;
-    }
-
-    // Проверяем, есть ли место на выбранной стороне корта
-    const court = courtsData.find(c => c.id === courtId);
-    if (!court) return;
-
-    // Проверяем, не запущена ли игра на этом корте
-    if (gameTimers[courtId] !== undefined) {
-        alert('Нельзя изменять состав участников во время игры');
-        return;
-    }
-
-    const sideArray = side === 1 ? court.side1 : court.side2;
-    if (sideArray.length >= 2) {
-        alert('На этой стороне уже максимальное количество игроков (2)');
-        return;
-    }
-
-    // Создаем модальное окно для выбора игрока
-    const modal = document.createElement('div');
-    modal.classList.add('player-selection-modal');
-
-    const modalContent = document.createElement('div');
-    modalContent.classList.add('player-selection-modal-content');
-
-    // Заголовок модального окна
-    const modalHeader = document.createElement('div');
-    modalHeader.classList.add('player-selection-modal-header');
-    modalHeader.innerHTML = `
-        <h3>Выберите игрока</h3>
-        <span class="close-modal">&times;</span>
-    `;
-
-    // Список игроков
-    const playersList = document.createElement('div');
-    playersList.classList.add('player-selection-list');
-
-    queuePlayers.forEach((player, index) => {
-        const playerItem = document.createElement('div');
-        playerItem.classList.add('player-selection-item');
-
-        // Если у игрока нет фото, создаем аватар с инициалами
-        let photoSrc;
-        if (player.photo) {
-            photoSrc = player.photo;
-        } else {
-            photoSrc = createInitialsAvatar(player.firstName, player.lastName);
-        }
-
-        playerItem.innerHTML = `
-            <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="player-selection-photo">
-            <span class="player-selection-name">${player.firstName} ${player.lastName}</span>
-        `;
-
-        // Добавляем обработчик клика для выбора игрока
-        playerItem.addEventListener('click', function() {
-            // Добавляем выбранного игрока на корт
-            const success = addPlayerToCourt(courtId, side, player);
-
-            if (success !== false) {
-                // Удаляем игрока из очереди
-                queuePlayers.splice(index, 1);
-
-                // Обновляем отображение
-                renderCourts();
-                renderQueue();
-
-                // Закрываем модальное окно
-                document.body.removeChild(modal);
-            }
-        });
-
-        playersList.appendChild(playerItem);
-    });
-
-    // Собираем модальное окно
-    modalContent.appendChild(modalHeader);
-    modalContent.appendChild(playersList);
-    modal.appendChild(modalContent);
-
-    // Добавляем обработчик для закрытия модального окна
-    const closeBtn = modalHeader.querySelector('.close-modal');
-    closeBtn.addEventListener('click', function() {
-        document.body.removeChild(modal);
-    });
-
-    // Добавляем обработчик для закрытия модального окна при клике вне его
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            document.body.removeChild(modal);
-        }
-    });
-
-    // Добавляем модальное окно в DOM
-    document.body.appendChild(modal);
-}
-
-// Добавление игрока на корт
-function addPlayerToCourt(courtId, side, player) {
-    const court = courtsData.find(c => c.id === courtId);
-    if (!court) return;
-
-    // Проверяем, не запущена ли игра на этом корте
-    if (gameTimers[courtId] !== undefined) {
-        alert('Нельзя изменять состав участников во время игры');
-        return false;
-    }
-
-    // Проверяем, что на стороне не более 2 игроков
-    if (side === 1) {
-        if (court.side1.length >= 2) {
-            alert('На этой стороне уже максимальное количество игроков (2)');
-            return false;
-        }
-        court.side1.push(player);
-    } else {
-        if (court.side2.length >= 2) {
-            alert('На этой стороне уже максимальное количество игроков (2)');
-            return false;
-        }
-        court.side2.push(player);
-    }
-
-    return true;
-}
-
-// Удаление игрока с корта и возвращение его в очередь
-function removePlayerFromCourt(courtId, side, playerIndex) {
-    const court = courtsData.find(c => c.id === courtId);
-    if (!court) return;
-
-    // Проверяем, не запущена ли игра на этом корте
-    if (gameTimers[courtId] !== undefined) {
-        alert('Нельзя изменять состав участников во время игры');
-        return;
-    }
-
-    let removedPlayer;
-
-    // Удаляем игрока с корта
-    if (side === 1) {
-        if (playerIndex < 0 || playerIndex >= court.side1.length) return;
-        removedPlayer = court.side1.splice(playerIndex, 1)[0];
-    } else {
-        if (playerIndex < 0 || playerIndex >= court.side2.length) return;
-        removedPlayer = court.side2.splice(playerIndex, 1)[0];
-    }
-
-    // Добавляем игрока в начало очереди
-    if (removedPlayer) {
-        // Сбрасываем счетчик побед для удаленного игрока
-        if (consecutiveWins[removedPlayer.id]) {
-            delete consecutiveWins[removedPlayer.id];
-        }
-
-        queuePlayers.unshift(removedPlayer);
-    }
-
-    // Обновляем отображение
-    renderCourts();
-    renderQueue();
-}
-
-// Запуск игры на корте
-function startGame(courtId) {
-    // Проверяем, что на каждой стороне корта есть по 1 или 2 игрока
-    const court = courtsData.find(c => c.id === courtId);
-    if (!court) return;
-
-    if (court.side1.length === 0 || court.side2.length === 0 || court.side1.length > 2 || court.side2.length > 2) {
-        alert('Для начала игры на каждой стороне корта должно быть по 1 или 2 игрока');
-        return;
-    }
-
-    // Показываем таймер
-    const timerElement = document.getElementById(`timer-${courtId}`);
-    timerElement.style.display = 'block';
-
-    // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
-    const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
-    const actionsContainer = document.getElementById(`game-actions-${courtId}`);
-
-    startButton.style.display = 'none';
-    actionsContainer.style.display = 'flex';
-
-    // Запускаем таймер
-    gameStartTimes[courtId] = Date.now();
-
-    // Обновляем таймер каждую секунду
-    gameTimers[courtId] = setInterval(() => {
-        updateTimer(courtId);
-    }, 1000);
-
-    // Сразу обновляем таймер, чтобы показать 00:00
-    updateTimer(courtId);
-
-    // Перерисовываем корты, чтобы применить ограничения на изменение состава игроков
-    renderCourts();
-
-    // Сохраняем состояние тренировки в Supabase
-    saveTrainingState();
-}
-
-// Обновление таймера
-function updateTimer(courtId) {
-    const timerElement = document.getElementById(`timer-${courtId}`);
-    const startTime = gameStartTimes[courtId];
-    const currentTime = Date.now();
-    const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
-
-    const minutes = Math.floor(elapsedSeconds / 60);
-    const seconds = elapsedSeconds % 60;
-
-    // Форматируем время в формат MM:SS
-    const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    timerElement.textContent = formattedTime;
-}
-
-// Отмена игры (сброс таймера)
-function cancelGame(courtId) {
-    // Останавливаем таймер
-    clearInterval(gameTimers[courtId]);
-    delete gameTimers[courtId];
-    delete gameStartTimes[courtId];
-
-    // Скрываем таймер
-    const timerElement = document.getElementById(`timer-${courtId}`);
-    timerElement.style.display = 'none';
-
-    // Показываем кнопку "Начать" и скрываем кнопки "Отмена" и "Игра завершена"
-    const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
-    const actionsContainer = document.getElementById(`game-actions-${courtId}`);
-
-    startButton.style.display = 'block';
-    actionsContainer.style.display = 'none';
-
-    // Получаем корт
-    const court = courtsData.find(c => c.id === courtId);
-    if (court) {
-        // Сбрасываем счетчик побед для всех игроков на корте
-        [...court.side1, ...court.side2].forEach(player => {
-            if (consecutiveWins[player.id]) {
-                delete consecutiveWins[player.id];
-            }
-        });
-    }
-
-    // Перерисовываем корты, чтобы снять ограничения на изменение состава игроков
-    renderCourts();
-
-    // Сохраняем состояние тренировки в Supabase
-    saveTrainingState();
-}
-
-// Завершение игры на корте
-function finishGame(courtId) {
-    // Останавливаем таймер
-    if (gameTimers[courtId]) {
-        clearInterval(gameTimers[courtId]);
-        delete gameTimers[courtId];
-        delete gameStartTimes[courtId];
-    }
-
-    const court = courtsData.find(c => c.id === courtId);
-    if (!court) return;
-
-    // Проверяем, что на обеих сторонах есть игроки
-    if (court.side1.length === 0 || court.side2.length === 0) {
-        alert('Невозможно завершить игру: на одной из сторон нет игроков');
-        return;
-    }
-
-    // Создаем всплывающее окно для выбора победителя
-    showWinnerSelectionDialog(courtId, court);
-}
-
-// Показать диалог выбора победителя
-function showWinnerSelectionDialog(courtId, court) {
-    // Создаем модальное окно
-    const modal = document.createElement('div');
-    modal.classList.add('player-selection-modal');
-
-    const modalContent = document.createElement('div');
-    modalContent.classList.add('player-selection-modal-content');
-
-    // Заголовок модального окна
-    const modalHeader = document.createElement('div');
-    modalHeader.classList.add('player-selection-modal-header');
-    modalHeader.innerHTML = `
-        <h3>Кто победил?</h3>
-        <span class="close-modal">&times;</span>
-    `;
-
-    // Формируем имена игроков для каждой стороны
-    const side1Names = court.side1.map(player => `${player.lastName}`).join('/');
-    const side2Names = court.side2.map(player => `${player.lastName}`).join('/');
-
-    // Создаем кнопки для выбора победителя
-    const buttonsContainer = document.createElement('div');
-    buttonsContainer.classList.add('winner-buttons-container');
-    buttonsContainer.style.display = 'flex';
-    buttonsContainer.style.flexDirection = 'column';
-    buttonsContainer.style.gap = '10px';
-    buttonsContainer.style.marginTop = '20px';
-
-    const side1Button = document.createElement('button');
-    side1Button.classList.add('btn', 'winner-btn');
-    side1Button.textContent = side1Names;
-    side1Button.style.padding = '10px 20px';
-    side1Button.style.fontSize = '16px';
-
-    const side2Button = document.createElement('button');
-    side2Button.classList.add('btn', 'winner-btn');
-    side2Button.textContent = side2Names;
-    side2Button.style.padding = '10px 20px';
-    side2Button.style.fontSize = '16px';
-
-    // Добавляем обработчики для кнопок
-    side1Button.addEventListener('click', function() {
-        // Здесь можно добавить логику для записи победителя
-        console.log(`Победители: ${side1Names}`);
-
-        // Завершаем игру, указывая сторону 1 как победителя
-        finishGameAfterWinnerSelection(courtId, 1);
-
-        // Закрываем модальное окно
-        document.body.removeChild(modal);
-    });
-
-    side2Button.addEventListener('click', function() {
-        // Здесь можно добавить логику для записи победителя
-        console.log(`Победители: ${side2Names}`);
-
-        // Завершаем игру, указывая сторону 2 как победителя
-        finishGameAfterWinnerSelection(courtId, 2);
-
-        // Закрываем модальное окно
-        document.body.removeChild(modal);
-    });
-
-    // Добавляем кнопки в контейнер
-    buttonsContainer.appendChild(side1Button);
-    buttonsContainer.appendChild(side2Button);
-
-    // Собираем модальное окно
-    modalContent.appendChild(modalHeader);
-    modalContent.appendChild(buttonsContainer);
-    modal.appendChild(modalContent);
-
-    // Добавляем обработчик для закрытия модального окна
-    const closeBtn = modalHeader.querySelector('.close-modal');
-    closeBtn.addEventListener('click', function() {
-        document.body.removeChild(modal);
-    });
-
-    // Добавляем обработчик для закрытия модального окна при клике вне его
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            document.body.removeChild(modal);
-        }
-    });
-
-    // Добавляем модальное окно в DOM
-    document.body.appendChild(modal);
-}
-
-// Завершение игры после выбора победителя
-function finishGameAfterWinnerSelection(courtId, winningSide) {
-    const court = courtsData.find(c => c.id === courtId);
-    if (!court) return;
-
-    // Получаем победителей и проигравших
-    const winners = winningSide === 1 ? [...court.side1] : [...court.side2];
-    const losers = winningSide === 1 ? [...court.side2] : [...court.side1];
-
-    // Обрабатываем игроков в зависимости от режима игры
-    if (gameMode === 'play-once') {
-        // Режим "Играем один раз" - все игроки перемещаются в конец очереди,
-        // сначала победители, а за ними проигравшие
-        winners.forEach(player => {
-            queuePlayers.push(player);
-        });
-
-        losers.forEach(player => {
-            queuePlayers.push(player);
-        });
-    } else if (gameMode === 'max-twice') {
-        // Режим "Не более двух раз" - победитель остается на корте, но если победитель
-        // побеждает второй раз подряд, он уходит в конец очереди
-
-        // Проверяем, есть ли среди победителей игроки, которые уже выиграли один раз
-        let secondWin = false;
-        winners.forEach(player => {
-            // Если у игрока уже есть победа, значит это вторая победа подряд
-            if (consecutiveWins[player.id]) {
-                secondWin = true;
-            }
-        });
-
-        if (secondWin) {
-            // Если это вторая победа подряд, победители уходят в конец очереди,
-            // а затем проигравшие
-            winners.forEach(player => {
-                // Сбрасываем счетчик побед
-                delete consecutiveWins[player.id];
-                queuePlayers.push(player);
-            });
-
-            losers.forEach(player => {
-                // Сбрасываем счетчик побед для проигравших (на всякий случай)
-                delete consecutiveWins[player.id];
-                queuePlayers.push(player);
-            });
-
-            // Очищаем корт
-            court.side1 = [];
-            court.side2 = [];
-        } else {
-            // Если это первая победа, победители остаются на корте
-            // и получают отметку о первой победе
-            winners.forEach(player => {
-                // Отмечаем, что у игрока есть победа
-                consecutiveWins[player.id] = true;
-            });
-
-            // Проигравшие уходят в конец очереди
-            losers.forEach(player => {
-                // Сбрасываем счетчик побед для проигравших (на всякий случай)
-                delete consecutiveWins[player.id];
-                queuePlayers.push(player);
-            });
-
-            // Победители всегда перемещаются на верхнюю половину корта (side1)
-            court.side1 = [...winners]; // Создаем копию массива
-            court.side2 = [];
-        }
-    } else if (gameMode === 'winner-stays') {
-        // Режим "Победитель остается всегда" - победители остаются на корте,
-        // проигравшие отправляются в конец очереди
-
-        // Отправляем проигравших в конец очереди
-        losers.forEach(player => {
-            // Сбрасываем счетчик побед для проигравших
-            delete consecutiveWins[player.id];
-            queuePlayers.push(player);
-        });
-
-        // Увеличиваем счетчик побед для победителей
-        winners.forEach(player => {
-            // Если у игрока уже есть победы, увеличиваем счетчик
-            if (consecutiveWins[player.id]) {
-                consecutiveWins[player.id]++;
             } else {
-                // Иначе устанавливаем счетчик в 1
-                consecutiveWins[player.id] = 1;
+                console.warn(`Игрок с ID/индексом ${playerId} не найден`);
             }
         });
-
-        // Возвращаем победителей на корт
-        if (winningSide === 1) {
-            court.side1 = [...winners]; // Создаем копию массива
-            court.side2 = [];
-        } else {
-            court.side1 = [];
-            court.side2 = [...winners]; // Создаем копию массива
-        }
-    }
-
-    // Очищаем корт только если это режим "Играем один раз"
-    // В других режимах мы уже обработали корт выше
-    if (gameMode === 'play-once') {
-        court.side1 = [];
-        court.side2 = [];
-    }
-
-    // Обновляем отображение
-    renderCourts();
-    renderQueue();
-
-    // Сохраняем состояние тренировки в Supabase после завершения игры
-    saveTrainingState();
-}
-
-// Обработчик для кнопки возврата к списку тренировок
-backToMainBtn.addEventListener('click', function() {
-    window.location.href = 'index.html';
-});
-
-// Обработчик для выбора режима игры
-gameModeSelect.addEventListener('change', function() {
-    gameMode = this.value;
-    console.log(`Выбран режим игры: ${gameMode}`);
-
-    // Сохраняем состояние тренировки в Supabase при изменении режима игры
-    saveTrainingState();
-});
-
-// Функция для отображения индикатора загрузки
-function showLoadingIndicator() {
-    // Создаем элемент индикатора загрузки, если его еще нет
-    if (!document.getElementById('loading-indicator')) {
-        const loadingIndicator = document.createElement('div');
-        loadingIndicator.id = 'loading-indicator';
-        loadingIndicator.innerHTML = `
-            <div class="loading-spinner"></div>
-            <div class="loading-text">Сохранение данных...</div>
-        `;
-        document.body.appendChild(loadingIndicator);
     } else {
-        document.getElementById('loading-indicator').style.display = 'flex';
+        console.log('Нет игроков в тренировке');
     }
-}
 
-// Функция для скрытия индикатора загрузки
-function hideLoadingIndicator() {
-    const loadingIndicator = document.getElementById('loading-indicator');
-    if (loadingIndicator) {
-        loadingIndicator.style.display = 'none';
-    }
+    // Сортируем игроков по фамилии для удобства
+    queuePlayers.sort((a, b) => a.lastName.localeCompare(b.lastName));
 }
 
 // Функция для сохранения состояния тренировки в Supabase
-async function saveTrainingState() {
-    // Показываем индикатор загрузки
-    showLoadingIndicator();
-
+async function saveTrainingStateToSupabase() {
+    console.log('Сохранение состояния тренировки в Supabase...');
+    
+    if (!trainingId) {
+        console.error('ID тренировки не определен, сохранение невозможно');
+        return false;
+    }
+    
     try {
-        // Создаем объект с текущим состоянием тренировки
+        // Формируем объект с состоянием тренировки
         const trainingState = {
             currentTraining,
             courtsData,
             queuePlayers,
             consecutiveWins,
             gameMode,
-            gameTimers: {}, // Не сохраняем сами таймеры, только их состояние
-            gameStartTimes: {} // Сохраняем время начала игр
+            gameStartTimes: { ...gameStartTimes },
+            lastUpdated: new Date().toISOString()
         };
-
-        // Для каждого активного таймера сохраняем время начала
-        Object.keys(gameTimers).forEach(courtId => {
-            trainingState.gameStartTimes[courtId] = gameStartTimes[courtId];
-        });
-
-        // Сохраняем состояние в Supabase
-        const { data, error } = await supabase
-            .from('training_states')
-            .upsert(
-                {
-                    training_id: trainingId,
-                    state: trainingState
-                },
-                { onConflict: 'training_id' }
-            );
-
-        if (error) throw error;
-
-        console.log('Состояние тренировки сохранено в Supabase');
-
-        // Также сохраняем в localStorage как резервную копию
-        localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
+        
+        console.log('Подготовлены данные для сохранения в Supabase');
+        
+        // Проверяем, существует ли уже запись для этой тренировки
+        try {
+            const { data: existingState, error: checkError } = await supabase
+                .from('training_states')
+                .select('id')
+                .eq('training_id', trainingId)
+                .maybeSingle();
+                
+            if (checkError) {
+                // Проверяем, связана ли ошибка с RLS
+                if (checkError.message && (
+                    checkError.message.includes('permission denied') || 
+                    checkError.message.includes('RLS') ||
+                    checkError.message.includes('policy')
+                )) {
+                    console.warn('Ошибка доступа к таблице training_states (RLS):', checkError.message);
+                    console.log('Сохранение в Supabase пропущено из-за ограничений RLS');
+                    return false;
+                }
+                
+                if (checkError.code !== 'PGRST116') {
+                    console.error('Ошибка при проверке существующего состояния:', checkError);
+                    return false;
+                }
+            }
+            
+            let result;
+            
+            if (existingState) {
+                // Обновляем существующую запись
+                console.log('Обновляем существующую запись состояния в Supabase');
+                result = await supabase
+                    .from('training_states')
+                    .update({ state: trainingState })
+                    .eq('training_id', trainingId);
+            } else {
+                // Создаем новую запись
+                console.log('Создаем новую запись состояния в Supabase');
+                result = await supabase
+                    .from('training_states')
+                    .insert({ training_id: trainingId, state: trainingState });
+            }
+            
+            if (result.error) {
+                // Проверяем, связана ли ошибка с RLS
+                if (result.error.message && (
+                    result.error.message.includes('permission denied') || 
+                    result.error.message.includes('RLS') ||
+                    result.error.message.includes('policy')
+                )) {
+                    console.warn('Ошибка доступа к таблице training_states (RLS):', result.error.message);
+                    console.log('Сохранение в Supabase пропущено из-за ограничений RLS');
+                    return false;
+                }
+                
+                console.error('Ошибка при сохранении состояния в Supabase:', result.error);
+                return false;
+            }
+            
+            console.log('Состояние тренировки успешно сохранено в Supabase');
+            return true;
+        } catch (innerError) {
+            // Проверяем, связана ли ошибка с RLS
+            if (innerError.message && (
+                innerError.message.includes('permission denied') || 
+                innerError.message.includes('RLS') ||
+                innerError.message.includes('policy')
+            )) {
+                console.warn('Ошибка доступа к таблице training_states (RLS):', innerError.message);
+                console.log('Сохранение в Supabase пропущено из-за ограничений RLS');
+                return false;
+            }
+            
+            throw innerError;
+        }
     } catch (error) {
-        console.error('Ошибка при сохранении состояния тренировки:', error);
-
-        // Показываем уведомление об ошибке
-        alert('Не удалось сохранить состояние тренировки на сервере. Данные сохранены локально.');
-
-        // Сохраняем в localStorage как резервную копию
-        const trainingState = {
-            currentTraining,
-            courtsData,
-            queuePlayers,
-            consecutiveWins,
-            gameMode,
-            gameStartTimes: { ...gameStartTimes }
-        };
-        localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
-    } finally {
-        // Скрываем индикатор загрузки
-        hideLoadingIndicator();
+        console.error('Ошибка при сохранении состояния в Supabase:', error);
+        return false;
     }
 }
 
 // Функция для загрузки состояния тренировки из Supabase
 async function loadTrainingState() {
+    console.log('Загрузка состояния тренировки...');
+    
     // Показываем индикатор загрузки
     showLoadingIndicator();
 
     try {
-        // Пытаемся загрузить состояние из Supabase
-        const { data, error } = await supabase
-            .from('training_states')
-            .select('state')
-            .eq('training_id', trainingId)
-            .single();
-
-        if (error) {
-            // Если ошибка не связана с отсутствием данных, выбрасываем её
-            if (error.code !== 'PGRST116') {
-                throw error;
-            }
-
-            // Если данных нет в Supabase, пытаемся загрузить из localStorage
-            return loadTrainingStateFromLocalStorage();
-        }
-
-        if (data && data.state) {
-            // Восстанавливаем состояние тренировки из Supabase
-            const state = data.state;
-
-            // Восстанавливаем состояние тренировки
-            currentTraining = state.currentTraining;
-            courtsData = state.courtsData;
-            queuePlayers = state.queuePlayers;
-            consecutiveWins = state.consecutiveWins || {};
-            gameMode = state.gameMode || 'play-once';
-
-            // Устанавливаем выбранный режим игры в селекте
-            gameModeSelect.value = gameMode;
-
-            // Сохраняем информацию о начатых играх
-            const activeGames = {};
-            if (state.gameStartTimes) {
-                Object.keys(state.gameStartTimes).forEach(courtId => {
-                    // Сохраняем время начала игры
-                    gameStartTimes[parseInt(courtId)] = state.gameStartTimes[courtId];
-                    activeGames[parseInt(courtId)] = true;
-                });
-            }
-
-            // Обновляем отображение
-            displayTrainingInfo();
-            renderCourts();
-            renderQueue();
-
-            // Восстанавливаем таймеры для активных игр после рендеринга кортов
-            if (Object.keys(activeGames).length > 0) {
-                // Небольшая задержка, чтобы DOM успел обновиться
-                setTimeout(() => {
-                    Object.keys(activeGames).forEach(courtId => {
-                        courtId = parseInt(courtId);
-
-                        // Запускаем таймер заново
-                        const timerElement = document.getElementById(`timer-${courtId}`);
-                        if (timerElement) {
-                            timerElement.style.display = 'block';
-
-                            // Запускаем таймер
-                            gameTimers[courtId] = setInterval(() => {
-                                updateTimer(courtId);
-                            }, 1000);
-
-                            // Сразу обновляем таймер
-                            updateTimer(courtId);
-
-                            // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
-                            const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
-                            const actionsContainer = document.getElementById(`game-actions-${courtId}`);
-
-                            if (startButton && actionsContainer) {
-                                startButton.style.display = 'none';
-                                actionsContainer.style.display = 'flex';
-                            }
-                        }
-                    });
-                }, 100);
-            }
-
-            console.log('Состояние тренировки загружено из Supabase');
-            return true;
-        }
-
-        return false;
-    } catch (error) {
-        console.error('Ошибка при загрузке состояния тренировки из Supabase:', error);
-
-        // Пытаемся загрузить из localStorage как резервную копию
-        return loadTrainingStateFromLocalStorage();
-    } finally {
-        // Скрываем индикатор загрузки
-        hideLoadingIndicator();
-    }
-}
-
-// Функция для загрузки состояния тренировки из localStorage (резервная копия)
-function loadTrainingStateFromLocalStorage() {
-    // Получаем сохраненное состояние из localStorage
-    const savedState = localStorage.getItem(`training_state_${trainingId}`);
-
-    if (savedState) {
-        try {
-             // Проверяем, что клиент Supabase инициализирован правильно
+        // Проверяем, что клиент Supabase инициализирован правильно
         if (!supabase || !supabase.from) {
             console.error('Клиент Supabase не инициализирован правильно');
             throw new Error('Клиент Supabase не инициализирован правильно');
         }
-
+        
         console.log('Попытка загрузки состояния из Supabase для тренировки ID:', trainingId);
-
-       // Парсим сохраненное состояние
-            const state = JSON.parse(savedState);
-
-            // Восстанавливаем состояние тренировки
-            currentTraining = state.currentTraining;
-            courtsData = state.courtsData;
-            queuePlayers = state.queuePlayers;
-            consecutiveWins = state.consecutiveWins || {};
-            gameMode = state.gameMode || 'play-once';
-
-            // Устанавливаем выбранный режим игры в селекте
-            gameModeSelect.value = gameMode;
-
-            // Сохраняем информацию о начатых играх
-            const activeGames = {};
-            if (state.gameStartTimes) {
-Проверяем наличие данных в localStorage
-            console.log('Проверка наличия данных в localStorage...');
-            const hasLocalData = localStorage.getItem(`training_state_${trainingId}`) !== null;
-
-            if (hasLocalData) {
-                console.log('Найдены данные в localStorage, загружаем их...');
-                return loadTrainingStateFromLocalStorage();
-            } else {
-                console.log('Данные в localStorage не найдены, инициализируем новую тренировку');
-                // Если данных нет ни в Supabase, ни в localStorage, инициализируем новую тренировку
-                initCourts();
-                initQueue();
-                displayTrainingInfo();
-                renderCourts();
-                renderQueue();
-                return true;
+        
+        try {
+            // Пытаемся загрузить состояние из Supabase
+            const { data, error } = await supabase
+                .from('training_states')
+                .select('state')
+                .eq('training_id', trainingId)
+                .single();
+    
+            if (error) {
+                // Проверяем, связана ли ошибка с RLS
+                if (error.message && (
+                    error.message.includes('permission denied') || 
+                    error.message.includes('RLS') ||
+                    error.message.includes('policy')
+                )) {
+                    console.warn('Ошибка доступа к таблице training_states (RLS):', error.message);
+                    console.log('Загрузка из Supabase пропущена из-за ограничений RLS, используем localStorage');
+                    return loadTrainingStateFromLocalStorage();
+                }
+                
+                console.warn('Ошибка при загрузке состояния из Supabase:', error);
+                
+                // Если ошибка не связана с отсутствием данных, логируем её
+                if (error.code !== 'PGRST116') {
+                    console.error('Критическая ошибка при загрузке состояния из Supabase:', error);
+                }
+    
+                // Проверяем наличие данных в localStorage
+                console.log('Проверка наличия данных в localStorage...');
+                const hasLocalData = localStorage.getItem(`training_state_${trainingId}`) !== null;
+                
+                if (hasLocalData) {
+                    console.log('Найдены данные в localStorage, загружаем их...');
+                    return loadTrainingStateFromLocalStorage();
+                } else {
+                    console.log('Данные в localStorage не найдены, инициализируем новую тренировку');
+                    // Если данных нет ни в Supabase, ни в localStorage, инициализируем новую тренировку
+                    initCourts();
+                    initQueue();
+                    displayTrainingInfo();
+                    renderCourts();
+                    renderQueue();
+                    return true;
+                }
             }
-        }
-
-        if (data && data.state) {
-            console.log('Данные состояния получены из Supabase:', data);
-
-                Object.keys(state.gameStartTimes).forEach(courtId => {
-                    // Сохраняем время начала игры
-                    gameStartTimes[parseInt(courtId)] = state.gameStartTimes[courtId];
-                    activeGames[parseInt(courtId)] = true;
-                });
-            }
-
-            // Обновляем отображение
-            displayTrainingInfo();
-            renderCourts();
-            renderQueue();
-
-            // Восстанавливаем таймеры для активных игр после рендеринга кортов
-            if (Object.keys(activeGames).length > 0) {
-                // Небольшая задержка, чтобы DOM успел обновиться
-                setTimeout(() => {
-                    Object.keys(activeGames).forEach(courtId => {
-                        courtId = parseInt(courtId);
-
-                        // Запускаем таймер заново
-                        const timerElement = document.getElementById(`timer-${courtId}`);
-                        if (timerElement) {
-                            timerElement.style.display = 'block';
-
-                            // Запускаем таймер
-                            gameTimers[courtId] = setInterval(() => {
-                                updateTimer(courtId);
-                            }, 1000);
-
-                            // Сразу обновляем таймер
-                            updateTimer(courtId);
-
-                            // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
-                            const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
-                            const actionsContainer = document.getElementById(`game-actions-${courtId}`);
-
-                            if (startButton && actionsContainer) {
-                                startButton.style.display = 'none';
-                                actionsContainer.style.display = 'flex';
-                            }
-                        }
+    
+            if (data && data.state) {
+                console.log('Данные состояния получены из Supabase');
+                
+                // Восстанавливаем состояние тренировки из Supabase
+                const state = data.state;
+    
+                // Восстанавливаем состояние тренировки
+                currentTraining = state.currentTraining;
+                courtsData = state.courtsData || [];
+                queuePlayers = state.queuePlayers || [];
+                consecutiveWins = state.consecutiveWins || {};
+                gameMode = state.gameMode || 'play-once';
+    
+                // Устанавливаем выбранный режим игры в селекте
+                if (gameModeSelect) {
+                    gameModeSelect.value = gameMode;
+                }
+    
+                // Сохраняем информацию о начатых играх
+                const activeGames = {};
+                if (state.gameStartTimes) {
+                    Object.keys(state.gameStartTimes).forEach(courtId => {
+                        // Сохраняем время начала игры
+                        gameStartTimes[parseInt(courtId)] = state.gameStartTimes[courtId];
+                        activeGames[parseInt(courtId)] = true;
                     });
-                }, 100);
-            }
-
-            console.log('Состояние тренировки загружено из localStorage');
-            return true;
-        } catch (error) {
-            console.error('Ошибка при загрузке состояния тренировки из localStorage:', error);
-        }
-    }
-
-    return false;
-}
-
-// Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', async function() {
-    try {
-        // Пытаемся загрузить сохраненное состояние
-        const stateLoaded = await loadTrainingState();
-
-        // Если состояние не было загружено, загружаем данные из Supabase
-        if (!stateLoaded) {
-            await loadData();
-        } else {
-            console.log('Данные состояния в Supabase отсутствуют или пусты');
-
-            // Проверяем наличие данных в localStorage
-            const hasLocalData = localStorage.getItem(`training_state_${trainingId}`) !== null;
-
-            if (hasLocalData) {
-                console.log('Найдены данные в localStorage, загружаем их...');
-                return loadTrainingStateFromLocalStorage();
-            } else {
-                console.log('Данные в localStorage не найдены, инициализируем новую тренировку');
-                // Если данных нет ни в Supabase, ни в localStorage, инициализируем новую тренировку
-                initCourts();
-                initQueue();
+                }
+    
+                // Обновляем отображение
                 displayTrainingInfo();
                 renderCourts();
                 renderQueue();
+    
+                // Восстанавливаем таймеры для активных игр после рендеринга кортов
+                if (Object.keys(activeGames).length > 0) {
+                    // Небольшая задержка, чтобы DOM успел обновиться
+                    setTimeout(() => {
+                        Object.keys(activeGames).forEach(courtId => {
+                            courtId = parseInt(courtId);
+    
+                            // Запускаем таймер заново
+                            const timerElement = document.getElementById(`timer-${courtId}`);
+                            if (timerElement) {
+                                timerElement.style.display = 'block';
+    
+                                // Запускаем таймер
+                                gameTimers[courtId] = setInterval(() => {
+                                    updateTimer(courtId);
+                                }, 1000);
+    
+                                // Сразу обновляем таймер
+                                updateTimer(courtId);
+    
+                                // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
+                                const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
+                                const actionsContainer = document.getElementById(`game-actions-${courtId}`);
+    
+                                if (startButton && actionsContainer) {
+                                    startButton.style.display = 'none';
+                                    actionsContainer.style.display = 'flex';
+                                }
+                            }
+                        });
+                    }, 100);
+                }
+    
+                console.log('Состояние тренировки успешно загружено из Supabase');
                 return true;
+            } else {
+                console.log('Данные состояния в Supabase отсутствуют или пусты');
+                
+                // Проверяем наличие данных в localStorage
+                const hasLocalData = localStorage.getItem(`training_state_${trainingId}`) !== null;
+                
+                if (hasLocalData) {
+                    console.log('Найдены данные в localStorage, загружаем их...');
+                    return loadTrainingStateFromLocalStorage();
+                } else {
+                    console.log('Данные в localStorage не найдены, инициализируем новую тренировку');
+                    // Если данных нет ни в Supabase, ни в localStorage, инициализируем новую тренировку
+                    initCourts();
+                    initQueue();
+                    displayTrainingInfo();
+                    renderCourts();
+                    renderQueue();
+                    return true;
+                }
             }
+        } catch (innerError) {
+            // Проверяем, связана ли ошибка с RLS
+            if (innerError.message && (
+                innerError.message.includes('permission denied') || 
+                innerError.message.includes('RLS') ||
+                innerError.message.includes('policy')
+            )) {
+                console.warn('Ошибка доступа к таблице training_states (RLS):', innerError.message);
+                console.log('Загрузка из Supabase пропущена из-за ограничений RLS, используем localStorage');
+                return loadTrainingStateFromLocalStorage();
+            }
+            
+            throw innerError;
         }
     } catch (error) {
-        console.error('Ошибка при инициализации тренировки:', error);
-        alert('Произошла ошибка при загрузке данных. Пожалуйста, обновите страницу.');
-    }
+        console.error('Ошибка при загрузке состояния тренировки:', error);
 
-    // Добавляем обработчик для сохранения состояния при закрытии страницы
-    window.addEventListener('beforeunload', function() {
-        // Синхронно сохраняем в console.log('Попытка загрузки из localStorage после ошибки...');
+        // Пытаемся загрузить из localStorage как резервную копию
+        console.log('Попытка загрузки из localStorage после ошибки...');
         const localStateLoaded = loadTrainingStateFromLocalStorage();
-
+        
         if (!localStateLoaded) {
             console.log('Данные в localStorage не найдены, инициализируем новую тренировку');
             // Если данных нет ни в Supabase, ни в localStorage, инициализируем новую тренировку
@@ -1405,8 +692,134 @@ document.addEventListener('DOMContentLoaded', async function() {
             renderQueue();
             return true;
         }
+        
+        return localStateLoaded;
+    } finally {
+        // Скрываем индикатор загрузки
+        hideLoadingIndicator();
+    }
+}
 
-        return localStateLoaded перед закрытием страницы
+// Функция для загрузки состояния тренировки из localStorage (резервная копия)
+function loadTrainingStateFromLocalStorage() {
+    console.log('Попытка загрузки состояния из localStorage для тренировки ID:', trainingId);
+    
+    // Получаем сохраненное состояние из localStorage
+    const savedState = localStorage.getItem(`training_state_${trainingId}`);
+
+    if (!savedState) {
+        console.log('Состояние в localStorage не найдено');
+        return false;
+    }
+
+    try {
+        console.log('Состояние в localStorage найдено, парсим данные...');
+        
+        // Парсим сохраненное состояние
+        const state = JSON.parse(savedState);
+        
+        if (!state || !state.currentTraining) {
+            console.warn('Некорректные данные в localStorage:', state);
+            return false;
+        }
+        
+        console.log('Данные из localStorage успешно распарсены');
+
+        // Восстанавливаем состояние тренировки
+        currentTraining = state.currentTraining;
+        courtsData = state.courtsData || [];
+        queuePlayers = state.queuePlayers || [];
+        consecutiveWins = state.consecutiveWins || {};
+        gameMode = state.gameMode || 'play-once';
+
+        // Устанавливаем выбранный режим игры в селекте
+        if (gameModeSelect) {
+            gameModeSelect.value = gameMode;
+        }
+        
+        console.log('Восстановлены основные данные тренировки');
+        console.log('Текущая тренировка:', currentTraining);
+        console.log('Корты:', courtsData);
+        console.log('Очередь игроков:', queuePlayers);
+
+        // Сохраняем информацию о начатых играх
+        const activeGames = {};
+        if (state.gameStartTimes) {
+            Object.keys(state.gameStartTimes).forEach(courtId => {
+                // Сохраняем время начала игры
+                gameStartTimes[parseInt(courtId)] = state.gameStartTimes[courtId];
+                activeGames[parseInt(courtId)] = true;
+            });
+            console.log('Восстановлены данные о начатых играх:', activeGames);
+        }
+
+        // Обновляем отображение
+        displayTrainingInfo();
+        renderCourts();
+        renderQueue();
+        
+        console.log('Отображение обновлено');
+
+        // Восстанавливаем таймеры для активных игр после рендеринга кортов
+        if (Object.keys(activeGames).length > 0) {
+            console.log('Восстанавливаем таймеры для активных игр...');
+            
+            // Небольшая задержка, чтобы DOM успел обновиться
+            setTimeout(() => {
+                Object.keys(activeGames).forEach(courtId => {
+                    courtId = parseInt(courtId);
+                    console.log(`Восстанавливаем таймер для корта ${courtId}`);
+
+                    // Запускаем таймер заново
+                    const timerElement = document.getElementById(`timer-${courtId}`);
+                    if (timerElement) {
+                        timerElement.style.display = 'block';
+
+                        // Запускаем таймер
+                        gameTimers[courtId] = setInterval(() => {
+                            updateTimer(courtId);
+                        }, 1000);
+
+                        // Сразу обновляем таймер
+                        updateTimer(courtId);
+
+                        // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
+                        const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
+                        const actionsContainer = document.getElementById(`game-actions-${courtId}`);
+
+                        if (startButton && actionsContainer) {
+                            startButton.style.display = 'none';
+                            actionsContainer.style.display = 'flex';
+                        }
+                        
+                        console.log(`Таймер для корта ${courtId} восстановлен`);
+                    } else {
+                        console.warn(`Элемент таймера для корта ${courtId} не найден`);
+                    }
+                });
+            }, 100);
+        }
+
+        console.log('Состояние тренировки успешно загружено из localStorage');
+        return true;
+    } catch (error) {
+        console.error('Ошибка при загрузке состояния тренировки из localStorage:', error);
+        
+        // Удаляем некорректные данные из localStorage
+        localStorage.removeItem(`training_state_${trainingId}`);
+        console.log('Некорректные данные удалены из localStorage');
+        
+        return false;
+    }
+}
+
+// Функция для периодического сохранения состояния
+function setupAutoSave() {
+    // Сохраняем состояние каждые 30 секунд
+    const autoSaveInterval = setInterval(async () => {
+        console.log('Автоматическое сохранение состояния...');
+        
+        // Сохраняем в localStorage
         const trainingState = {
             currentTraining,
             courtsData,
@@ -1416,18 +829,70 @@ document.addEventListener('DOMContentLoaded', async function() {
             gameStartTimes: { ...gameStartTimes }
         };
         localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
-
-        // Пытаемся сохранить в Supabase, но это может не успеть выполниться
-        // Используем navigator.sendBeacon для асинхронной отправки данных
+        
+        // Пытаемся сохранить в Supabase
         try {
-            const blob = new Blob([JSON.stringify({
-                training_id: trainingId,
-                state: trainingState
-            })], { type: 'application/json' });
-
-            navigator.sendBeacon('/api/save-training-state', blob);
-        } catch (e) {
-            console.error('Ошибка при использовании sendBeacon:', e);
+            await saveTrainingStateToSupabase();
+        } catch (error) {
+            console.error('Ошибка при автоматическом сохранении в Supabase:', error);
         }
+    }, 30000); // 30 секунд
+    
+    // Очищаем интервал при уходе со страницы
+    window.addEventListener('beforeunload', () => {
+        clearInterval(autoSaveInterval);
+    });
+}
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        // Загружаем данные из Supabase
+        console.log('Инициализация страницы тренировки...');
+        
+        // Сначала загружаем основные данные из Supabase
+        await loadData();
+        
+        // Затем пытаемся загрузить сохраненное состояние тренировки
+        const stateLoaded = await loadTrainingState();
+        
+        console.log('Состояние тренировки загружено:', stateLoaded);
+        
+        // Запускаем автосохранение
+        setupAutoSave();
+    } catch (error) {
+        console.error('Ошибка при инициализации тренировки:', error);
+        alert('Произошла ошибка при загрузке данных. Пожалуйста, обновите страницу.');
+    }
+
+    // Добавляем обработчик для сохранения состояния при закрытии страницы
+    window.addEventListener('beforeunload', function() {
+        console.log('Страница закрывается, сохраняем состояние...');
+        
+        // Синхронно сохраняем в localStorage перед закрытием страницы
+        const trainingState = {
+            currentTraining,
+            courtsData,
+            queuePlayers,
+            consecutiveWins,
+            gameMode,
+            gameStartTimes: { ...gameStartTimes }
+        };
+        localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
     });
 });
+
+// Отображение кортов
+function renderCourts() {
+    // Реализация функции renderCourts
+}
+
+// Отображение очереди игроков
+function renderQueue() {
+    // Реализация функции renderQueue
+}
+
+// Обновление таймера
+function updateTimer(courtId) {
+    // Реализация функции updateTimer
+}
