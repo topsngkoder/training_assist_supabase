@@ -67,13 +67,16 @@ const defaultAvatarURL = createDefaultAvatar();
 // Загрузка данных из Supabase
 async function loadData() {
     try {
+        // Показываем индикатор загрузки
+        showLoadingIndicator();
+
         // Загружаем игроков
         const { data: playersData, error: playersError } = await supabase
             .from('players')
             .select('*');
-        
+
         if (playersError) throw playersError;
-        
+
         // Преобразуем данные в формат, ожидаемый приложением
         players = playersData.map(player => ({
             id: player.id,
@@ -82,21 +85,21 @@ async function loadData() {
             rating: player.rating,
             photo: player.photo
         }));
-        
+
         // Загружаем тренировки
         const { data: trainingsData, error: trainingsError } = await supabase
             .from('trainings')
             .select('*');
-        
+
         if (trainingsError) throw trainingsError;
-        
+
         // Загружаем связи между тренировками и игроками
         const { data: trainingPlayersData, error: trainingPlayersError } = await supabase
             .from('training_players')
             .select('*');
-        
+
         if (trainingPlayersError) throw trainingPlayersError;
-        
+
         // Преобразуем данные в формат, ожидаемый приложением
         trainings = trainingsData.map(training => {
             // Находим всех игроков для этой тренировки
@@ -107,7 +110,7 @@ async function loadData() {
                     return players.findIndex(p => p.id === tp.player_id);
                 })
                 .filter(index => index !== -1); // Убираем несуществующих игроков
-            
+
             return {
                 id: training.id,
                 location: training.location,
@@ -117,12 +120,18 @@ async function loadData() {
                 playerIds: playerIds
             };
         });
-        
+
         // Инициализируем тренировку
         initTrainingSession();
+
+        return true;
     } catch (error) {
         console.error('Ошибка при загрузке данных:', error);
         alert('Произошла ошибка при загрузке данных. Пожалуйста, попробуйте позже.');
+        return false;
+    } finally {
+        // Скрываем индикатор загрузки
+        hideLoadingIndicator();
     }
 }
 
@@ -953,31 +962,179 @@ gameModeSelect.addEventListener('change', function() {
     saveTrainingState();
 });
 
-// Функция для сохранения состояния тренировки в localStorage
-function saveTrainingState() {
-    // Создаем объект с текущим состоянием тренировки
-    const trainingState = {
-        currentTraining,
-        courtsData,
-        queuePlayers,
-        consecutiveWins,
-        gameMode,
-        gameTimers: {}, // Не сохраняем сами таймеры, только их состояние
-        gameStartTimes: {} // Сохраняем время начала игр
-    };
-
-    // Для каждого активного таймера сохраняем время начала
-    Object.keys(gameTimers).forEach(courtId => {
-        trainingState.gameStartTimes[courtId] = gameStartTimes[courtId];
-    });
-
-    // Сохраняем состояние в localStorage
-    localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
-    console.log('Состояние тренировки сохранено');
+// Функция для отображения индикатора загрузки
+function showLoadingIndicator() {
+    // Создаем элемент индикатора загрузки, если его еще нет
+    if (!document.getElementById('loading-indicator')) {
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.id = 'loading-indicator';
+        loadingIndicator.innerHTML = `
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Сохранение данных...</div>
+        `;
+        document.body.appendChild(loadingIndicator);
+    } else {
+        document.getElementById('loading-indicator').style.display = 'flex';
+    }
 }
 
-// Функция для загрузки состояния тренировки из localStorage
-function loadTrainingState() {
+// Функция для скрытия индикатора загрузки
+function hideLoadingIndicator() {
+    const loadingIndicator = document.getElementById('loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+    }
+}
+
+// Функция для сохранения состояния тренировки в Supabase
+async function saveTrainingState() {
+    // Показываем индикатор загрузки
+    showLoadingIndicator();
+
+    try {
+        // Создаем объект с текущим состоянием тренировки
+        const trainingState = {
+            currentTraining,
+            courtsData,
+            queuePlayers,
+            consecutiveWins,
+            gameMode,
+            gameTimers: {}, // Не сохраняем сами таймеры, только их состояние
+            gameStartTimes: {} // Сохраняем время начала игр
+        };
+
+        // Для каждого активного таймера сохраняем время начала
+        Object.keys(gameTimers).forEach(courtId => {
+            trainingState.gameStartTimes[courtId] = gameStartTimes[courtId];
+        });
+
+        // Сохраняем состояние в Supabase
+        const { data, error } = await supabase
+            .from('training_states')
+            .upsert(
+                {
+                    training_id: trainingId,
+                    state: trainingState
+                },
+                { onConflict: 'training_id' }
+            );
+
+        if (error) throw error;
+
+        console.log('Состояние тренировки сохранено в Supabase');
+
+        // Также сохраняем в localStorage как резервную копию
+        localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
+    } catch (error) {
+        console.error('Ошибка при сохранении состояния тренировки:', error);
+
+        // Показываем уведомление об ошибке
+        alert('Не удалось сохранить состояние тренировки на сервере. Данные сохранены локально.');
+
+        // Сохраняем в localStorage как резервную копию
+        const trainingState = {
+            currentTraining,
+            courtsData,
+            queuePlayers,
+            consecutiveWins,
+            gameMode,
+            gameStartTimes: { ...gameStartTimes }
+        };
+        localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
+    } finally {
+        // Скрываем индикатор загрузки
+        hideLoadingIndicator();
+    }
+}
+
+// Функция для загрузки состояния тренировки из Supabase
+async function loadTrainingState() {
+    // Показываем индикатор загрузки
+    showLoadingIndicator();
+
+    try {
+        // Пытаемся загрузить состояние из Supabase
+        const { data, error } = await supabase
+            .from('training_states')
+            .select('state')
+            .eq('training_id', trainingId)
+            .single();
+
+        if (error) {
+            // Если ошибка не связана с отсутствием данных, выбрасываем её
+            if (error.code !== 'PGRST116') {
+                throw error;
+            }
+
+            // Если данных нет в Supabase, пытаемся загрузить из localStorage
+            return loadTrainingStateFromLocalStorage();
+        }
+
+        if (data && data.state) {
+            // Восстанавливаем состояние тренировки из Supabase
+            const state = data.state;
+
+            // Восстанавливаем состояние тренировки
+            currentTraining = state.currentTraining;
+            courtsData = state.courtsData;
+            queuePlayers = state.queuePlayers;
+            consecutiveWins = state.consecutiveWins || {};
+            gameMode = state.gameMode || 'play-once';
+
+            // Устанавливаем выбранный режим игры в селекте
+            gameModeSelect.value = gameMode;
+
+            // Восстанавливаем таймеры для активных игр
+            if (state.gameStartTimes) {
+                Object.keys(state.gameStartTimes).forEach(courtId => {
+                    // Восстанавливаем время начала игры
+                    gameStartTimes[courtId] = state.gameStartTimes[courtId];
+
+                    // Запускаем таймер заново
+                    const timerElement = document.getElementById(`timer-${courtId}`);
+                    if (timerElement) {
+                        timerElement.style.display = 'inline-block';
+
+                        // Запускаем таймер
+                        gameTimers[courtId] = setInterval(() => {
+                            updateTimer(parseInt(courtId));
+                        }, 1000);
+
+                        // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
+                        const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
+                        const actionsContainer = document.getElementById(`game-actions-${courtId}`);
+
+                        if (startButton && actionsContainer) {
+                            startButton.style.display = 'none';
+                            actionsContainer.style.display = 'flex';
+                        }
+                    }
+                });
+            }
+
+            // Обновляем отображение
+            displayTrainingInfo();
+            renderCourts();
+            renderQueue();
+
+            console.log('Состояние тренировки загружено из Supabase');
+            return true;
+        }
+
+        return false;
+    } catch (error) {
+        console.error('Ошибка при загрузке состояния тренировки из Supabase:', error);
+
+        // Пытаемся загрузить из localStorage как резервную копию
+        return loadTrainingStateFromLocalStorage();
+    } finally {
+        // Скрываем индикатор загрузки
+        hideLoadingIndicator();
+    }
+}
+
+// Функция для загрузки состояния тренировки из localStorage (резервная копия)
+function loadTrainingStateFromLocalStorage() {
     // Получаем сохраненное состояние из localStorage
     const savedState = localStorage.getItem(`training_state_${trainingId}`);
 
@@ -1009,7 +1166,7 @@ function loadTrainingState() {
 
                         // Запускаем таймер
                         gameTimers[courtId] = setInterval(() => {
-                            updateTimer(courtId, timerElement);
+                            updateTimer(parseInt(courtId));
                         }, 1000);
 
                         // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
@@ -1025,14 +1182,14 @@ function loadTrainingState() {
             }
 
             // Обновляем отображение
-            renderTrainingInfo();
+            displayTrainingInfo();
             renderCourts();
             renderQueue();
 
-            console.log('Состояние тренировки загружено');
+            console.log('Состояние тренировки загружено из localStorage');
             return true;
         } catch (error) {
-            console.error('Ошибка при загрузке состояния тренировки:', error);
+            console.error('Ошибка при загрузке состояния тренировки из localStorage:', error);
         }
     }
 
@@ -1040,15 +1197,37 @@ function loadTrainingState() {
 }
 
 // Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', function() {
-    // Пытаемся загрузить сохраненное состояние
-    const stateLoaded = loadTrainingState();
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        // Пытаемся загрузить сохраненное состояние
+        const stateLoaded = await loadTrainingState();
 
-    // Если состояние не было загружено, загружаем данные из Supabase
-    if (!stateLoaded) {
-        loadData();
+        // Если состояние не было загружено, загружаем данные из Supabase
+        if (!stateLoaded) {
+            await loadData();
+        }
+    } catch (error) {
+        console.error('Ошибка при инициализации тренировки:', error);
+        alert('Произошла ошибка при загрузке данных. Пожалуйста, обновите страницу.');
     }
 
     // Добавляем обработчик для сохранения состояния при закрытии страницы
-    window.addEventListener('beforeunload', saveTrainingState);
+    window.addEventListener('beforeunload', function() {
+        // Синхронно сохраняем в localStorage перед закрытием страницы
+        const trainingState = {
+            currentTraining,
+            courtsData,
+            queuePlayers,
+            consecutiveWins,
+            gameMode,
+            gameStartTimes: { ...gameStartTimes }
+        };
+        localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
+
+        // Асинхронное сохранение в Supabase может не успеть выполниться перед закрытием страницы,
+        // поэтому мы полагаемся на localStorage в этом случае
+    });
+
+    // Периодически сохраняем состояние в Supabase (каждые 30 секунд)
+    setInterval(saveTrainingState, 30000);
 });

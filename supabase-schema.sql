@@ -1,40 +1,25 @@
--- Создание таблицы для игроков
-CREATE TABLE players (
-  id SERIAL PRIMARY KEY,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  rating INTEGER NOT NULL,
-  photo TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Создание таблицы для хранения состояния тренировок
+CREATE TABLE IF NOT EXISTS training_states (
+    id SERIAL PRIMARY KEY,
+    training_id INTEGER NOT NULL REFERENCES trainings(id) ON DELETE CASCADE,
+    state JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(training_id)
 );
 
--- Создание таблицы для тренировок
-CREATE TABLE trainings (
-  id SERIAL PRIMARY KEY,
-  location TEXT NOT NULL,
-  date DATE NOT NULL,
-  time TIME NOT NULL,
-  courts INTEGER NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Создание индекса для быстрого поиска по training_id
+CREATE INDEX IF NOT EXISTS idx_training_states_training_id ON training_states(training_id);
 
--- Создание связующей таблицы между игроками и тренировками
-CREATE TABLE training_players (
-  id SERIAL PRIMARY KEY,
-  training_id INTEGER REFERENCES trainings(id) ON DELETE CASCADE,
-  player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(training_id, player_id)
-);
+-- Создание триггера для автоматического обновления updated_at
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
--- Создание политик безопасности на уровне строк (RLS)
--- Включаем RLS для всех таблиц
-ALTER TABLE players ENABLE ROW LEVEL SECURITY;
-ALTER TABLE trainings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE training_players ENABLE ROW LEVEL SECURITY;
-
--- Создаем политики для анонимного доступа (для демонстрации)
--- В реальном приложении вы, вероятно, захотите ограничить доступ
-CREATE POLICY "Анонимный доступ к игрокам" ON players FOR ALL USING (true);
-CREATE POLICY "Анонимный доступ к тренировкам" ON trainings FOR ALL USING (true);
-CREATE POLICY "Анонимный доступ к связям игрок-тренировка" ON training_players FOR ALL USING (true);
+CREATE TRIGGER update_training_states_updated_at
+BEFORE UPDATE ON training_states
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
