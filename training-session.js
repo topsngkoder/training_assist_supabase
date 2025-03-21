@@ -353,11 +353,10 @@ function renderCourts() {
                     photoSrc = player.photo;
                 } else {
                     photoSrc = createInitialsAvatar(player.firstName, player.lastName);
-                }
-                // Проверяем, играет ли игрок вторую игру подряд в режиме "Не более двух раз"
+            // Проверяем, играет ли игрок вторую игру подряд в режиме "Не более двух раз"
                 const isSecondGame = consecutiveWins[player.id] && gameMode === 'max-twice';
 
-                // Получаем количество побед подряд для режима "Победитель остается всегда"
+                    // Получаем количество побед подряд для режима "Победитель остается всегда"
                 const winStreak = gameMode === 'winner-stays' && consecutiveWins[player.id] ? consecutiveWins[player.id] : 0;
 
                 side2PlayersHtml += `
@@ -370,14 +369,17 @@ function renderCourts() {
                                 ${winStreak > 0 ? `<span class="win-streak-badge" title="Побед подряд: ${winStreak}">${winStreak}</span>` : ''}
                             </div>
                             ${isGameInProgress ? '' : `<span class="remove-player" data-court="${court.id}" data-side="2" data-index="${court.side2.indexOf(player)}">&times;</span>`}
-                        </div>
-                    </div>
-                `;
+                                </div>
+                            </div>
+                        `;
             });
         }
 
         courtCard.innerHTML = `
             <div class="court-header">
+                } else {
+                    console.log(`Игрок ${player.firstName} ${player.lastName} уже в очереди, пропускаем`);
+                }
                 <div class="court-title-container">
                     <div class="court-title">${court.name}</div>
                     <div class="court-timer" id="timer-${court.id}" style="display: ${isGameInProgress ? 'block' : 'none'}">00:00</div>
@@ -1253,7 +1255,15 @@ function loadTrainingStateFromLocalStorage() {
 
     if (savedState) {
         try {
-            // Парсим сохраненное состояние
+             // Проверяем, что клиент Supabase инициализирован правильно
+        if (!supabase || !supabase.from) {
+            console.error('Клиент Supabase не инициализирован правильно');
+            throw new Error('Клиент Supabase не инициализирован правильно');
+        }
+
+        console.log('Попытка загрузки состояния из Supabase для тренировки ID:', trainingId);
+
+       // Парсим сохраненное состояние
             const state = JSON.parse(savedState);
 
             // Восстанавливаем состояние тренировки
@@ -1269,6 +1279,28 @@ function loadTrainingStateFromLocalStorage() {
             // Сохраняем информацию о начатых играх
             const activeGames = {};
             if (state.gameStartTimes) {
+Проверяем наличие данных в localStorage
+            console.log('Проверка наличия данных в localStorage...');
+            const hasLocalData = localStorage.getItem(`training_state_${trainingId}`) !== null;
+
+            if (hasLocalData) {
+                console.log('Найдены данные в localStorage, загружаем их...');
+                return loadTrainingStateFromLocalStorage();
+            } else {
+                console.log('Данные в localStorage не найдены, инициализируем новую тренировку');
+                // Если данных нет ни в Supabase, ни в localStorage, инициализируем новую тренировку
+                initCourts();
+                initQueue();
+                displayTrainingInfo();
+                renderCourts();
+                renderQueue();
+                return true;
+            }
+        }
+
+        if (data && data.state) {
+            console.log('Данные состояния получены из Supabase:', data);
+
                 Object.keys(state.gameStartTimes).forEach(courtId => {
                     // Сохраняем время начала игры
                     gameStartTimes[parseInt(courtId)] = state.gameStartTimes[courtId];
@@ -1333,6 +1365,25 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Если состояние не было загружено, загружаем данные из Supabase
         if (!stateLoaded) {
             await loadData();
+        } else {
+            console.log('Данные состояния в Supabase отсутствуют или пусты');
+
+            // Проверяем наличие данных в localStorage
+            const hasLocalData = localStorage.getItem(`training_state_${trainingId}`) !== null;
+
+            if (hasLocalData) {
+                console.log('Найдены данные в localStorage, загружаем их...');
+                return loadTrainingStateFromLocalStorage();
+            } else {
+                console.log('Данные в localStorage не найдены, инициализируем новую тренировку');
+                // Если данных нет ни в Supabase, ни в localStorage, инициализируем новую тренировку
+                initCourts();
+                initQueue();
+                displayTrainingInfo();
+                renderCourts();
+                renderQueue();
+                return true;
+            }
         }
     } catch (error) {
         console.error('Ошибка при инициализации тренировки:', error);
@@ -1341,7 +1392,21 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Добавляем обработчик для сохранения состояния при закрытии страницы
     window.addEventListener('beforeunload', function() {
-        // Синхронно сохраняем в localStorage перед закрытием страницы
+        // Синхронно сохраняем в console.log('Попытка загрузки из localStorage после ошибки...');
+        const localStateLoaded = loadTrainingStateFromLocalStorage();
+
+        if (!localStateLoaded) {
+            console.log('Данные в localStorage не найдены, инициализируем новую тренировку');
+            // Если данных нет ни в Supabase, ни в localStorage, инициализируем новую тренировку
+            initCourts();
+            initQueue();
+            displayTrainingInfo();
+            renderCourts();
+            renderQueue();
+            return true;
+        }
+
+        return localStateLoaded перед закрытием страницы
         const trainingState = {
             currentTraining,
             courtsData,
@@ -1352,7 +1417,17 @@ document.addEventListener('DOMContentLoaded', async function() {
         };
         localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
 
-        // Асинхронное сохранение в Supabase может не успеть выполниться перед закрытием страницы,
-        // поэтому мы полагаемся на localStorage в этом случае
+        // Пытаемся сохранить в Supabase, но это может не успеть выполниться
+        // Используем navigator.sendBeacon для асинхронной отправки данных
+        try {
+            const blob = new Blob([JSON.stringify({
+                training_id: trainingId,
+                state: trainingState
+            })], { type: 'application/json' });
+
+            navigator.sendBeacon('/api/save-training-state', blob);
+        } catch (e) {
+            console.error('Ошибка при использовании sendBeacon:', e);
+        }
     });
 });
