@@ -5,6 +5,9 @@ import supabase from './supabase.js';
 let players = [];
 let trainings = [];
 
+// Объявляем переменную для дефолтного аватара
+let defaultAvatarURL;
+
 // Получаем ID тренировки из URL
 const urlParams = new URLSearchParams(window.location.search);
 const trainingId = parseInt(urlParams.get('id'));
@@ -42,10 +45,17 @@ function createInitialsAvatar(firstName, lastName) {
     }
 
     try {
+        // Создаем элемент canvas
         const canvas = document.createElement('canvas');
         canvas.width = 200;
         canvas.height = 200;
+
+        // Получаем контекст для рисования
         const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            console.error('Не удалось получить контекст canvas');
+            return defaultAvatarURL;
+        }
 
         // Получаем инициалы
         const firstInitial = firstName.charAt(0).toUpperCase();
@@ -55,8 +65,15 @@ function createInitialsAvatar(firstName, lastName) {
         console.log(`Инициалы: ${initials}`);
 
         // Генерируем цвет фона на основе имени
-        const hue = Math.abs(firstName.length * 10 + lastName.length * 7) % 360;
-        const bgColor = `hsl(${hue}, 70%, 60%)`;
+        // Используем простой алгоритм для получения стабильного цвета
+        const hash = firstName.length * 10 + lastName.length * 7;
+        const colors = [
+            '#1abc9c', '#2ecc71', '#3498db', '#9b59b6', '#34495e',
+            '#16a085', '#27ae60', '#2980b9', '#8e44ad', '#2c3e50',
+            '#f1c40f', '#e67e22', '#e74c3c', '#ecf0f1', '#95a5a6',
+            '#f39c12', '#d35400', '#c0392b', '#bdc3c7', '#7f8c8d'
+        ];
+        const bgColor = colors[Math.abs(hash) % colors.length];
 
         console.log(`Цвет фона: ${bgColor}`);
 
@@ -68,15 +85,20 @@ function createInitialsAvatar(firstName, lastName) {
 
         // Рисуем инициалы
         ctx.fillStyle = 'white';
-        ctx.font = 'bold 80px Arial';
+        ctx.font = 'bold 80px Arial, Helvetica, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(initials, 100, 100);
 
         // Возвращаем как data URL
-        const dataUrl = canvas.toDataURL('image/png');
-        console.log('Аватар с инициалами успешно создан');
-        return dataUrl;
+        try {
+            const dataUrl = canvas.toDataURL('image/png');
+            console.log('Аватар с инициалами успешно создан');
+            return dataUrl;
+        } catch (e) {
+            console.error('Ошибка при создании data URL:', e);
+            return defaultAvatarURL;
+        }
     } catch (error) {
         console.error('Ошибка при создании аватара с инициалами:', error);
         return defaultAvatarURL;
@@ -114,7 +136,8 @@ function createDefaultAvatar() {
     return canvas.toDataURL('image/png');
 }
 
-const defaultAvatarURL = createDefaultAvatar();
+// Инициализируем дефолтный аватар
+defaultAvatarURL = createDefaultAvatar();
 
 // Загрузка данных из Supabase
 async function loadData() {
