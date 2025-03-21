@@ -315,7 +315,12 @@ function renderCourts() {
         if (court.side1.length > 0) {
             court.side1.forEach(player => {
                 // Если у игрока нет фото, создаем аватар с инициалами
-                const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
+                let photoSrc;
+                if (player.photo) {
+                    photoSrc = player.photo;
+                } else {
+                    photoSrc = createInitialsAvatar(player.firstName, player.lastName);
+                }
                 // Проверяем, играет ли игрок вторую игру подряд в режиме "Не более двух раз"
                 const isSecondGame = consecutiveWins[player.id] && gameMode === 'max-twice';
 
@@ -343,7 +348,12 @@ function renderCourts() {
         if (court.side2.length > 0) {
             court.side2.forEach(player => {
                 // Если у игрока нет фото, создаем аватар с инициалами
-                const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
+                let photoSrc;
+                if (player.photo) {
+                    photoSrc = player.photo;
+                } else {
+                    photoSrc = createInitialsAvatar(player.firstName, player.lastName);
+                }
                 // Проверяем, играет ли игрок вторую игру подряд в режиме "Не более двух раз"
                 const isSecondGame = consecutiveWins[player.id] && gameMode === 'max-twice';
 
@@ -493,7 +503,12 @@ function renderQueue() {
         playerElement.classList.add('queue-player');
 
         // Если у игрока нет фото, создаем аватар с инициалами
-        const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
+        let photoSrc;
+        if (player.photo) {
+            photoSrc = player.photo;
+        } else {
+            photoSrc = createInitialsAvatar(player.firstName, player.lastName);
+        }
 
         playerElement.innerHTML = `
             <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="queue-player-photo">
@@ -590,7 +605,12 @@ function showPlayerSelectionDialog(courtId, side) {
         playerItem.classList.add('player-selection-item');
 
         // Если у игрока нет фото, создаем аватар с инициалами
-        const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
+        let photoSrc;
+        if (player.photo) {
+            photoSrc = player.photo;
+        } else {
+            photoSrc = createInitialsAvatar(player.firstName, player.lastName);
+        }
 
         playerItem.innerHTML = `
             <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="player-selection-photo">

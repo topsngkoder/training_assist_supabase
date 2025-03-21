@@ -233,7 +233,13 @@ function renderPlayers() {
         playerCard.classList.add('player-card');
 
         // Если у игрока нет фото, создаем аватар с инициалами
-        const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
+        let photoSrc;
+        if (player.photo) {
+            photoSrc = player.photo;
+        } else {
+            photoSrc = createInitialsAvatar(player.firstName, player.lastName);
+        }
+        console.log(`Фото для ${player.firstName} ${player.lastName}:`, photoSrc);
 
         playerCard.innerHTML = `
             <div class="player-card-content">
@@ -452,7 +458,12 @@ function renderTrainings() {
                 const player = players[playerIndex];
                 if (player) {
                     // Если у игрока нет фото, создаем аватар с инициалами
-                    const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
+                    let photoSrc;
+                    if (player.photo) {
+                        photoSrc = player.photo;
+                    } else {
+                        photoSrc = createInitialsAvatar(player.firstName, player.lastName);
+                    }
                     playersHtml += `
                         <div class="training-player-item">
                             <img src="${photoSrc}" alt="${player.firstName} ${player.lastName}" class="training-player-photo">
@@ -729,7 +740,12 @@ function fillTrainingPlayersSelection(selectedPlayerIds = []) {
         playerItem.classList.add('player-checkbox-item');
 
         // Если у игрока нет фото, создаем аватар с инициалами
-        const photoSrc = player.photo || createInitialsAvatar(player.firstName, player.lastName);
+        let photoSrc;
+        if (player.photo) {
+            photoSrc = player.photo;
+        } else {
+            photoSrc = createInitialsAvatar(player.firstName, player.lastName);
+        }
         const isChecked = selectedPlayerIds.includes(index);
 
         playerItem.innerHTML = `
