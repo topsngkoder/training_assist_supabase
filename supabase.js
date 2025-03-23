@@ -8,7 +8,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Создаем клиент Supabase с дополнительными опциями
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
-        persistSession: true, // Сохраняем сессию в localStorage
+        persistSession: false, // Не сохраняем сессию в localStorage
         autoRefreshToken: true, // Автоматически обновляем токен
         detectSessionInUrl: false // Не ищем сессию в URL
     },

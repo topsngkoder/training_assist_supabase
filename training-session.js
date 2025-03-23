@@ -307,15 +307,7 @@ async function loadData() {
         // Принудительно добавляем всех игроков из тренировки, которых нет на кортах, в очередь
         syncQueueWithTrainingPlayers(true);
 
-        // Сохраняем оригинальный список игроков в тренировке в localStorage для восстановления в случае проблем
-        if (currentTraining && currentTraining.playerIds && currentTraining.playerIds.length > 0) {
-            try {
-                localStorage.setItem(`training_players_${trainingId}`, JSON.stringify(currentTraining.playerIds));
-                console.log('Сохранен оригинальный список игроков в тренировке в localStorage:', currentTraining.playerIds);
-            } catch (e) {
-                console.warn('Не удалось сохранить список игроков в localStorage:', e);
-            }
-        }
+        // Код сохранения в localStorage удален, так как мы используем только Supabase
 
         return true;
     } catch (error) {
@@ -392,24 +384,7 @@ function initTrainingSession() {
 
     console.log('Найдена тренировка:', currentTraining);
 
-    // Проверяем, есть ли сохраненный список игроков в localStorage
-    try {
-        const savedPlayersJson = localStorage.getItem(`training_players_${trainingId}`);
-        if (savedPlayersJson) {
-            const savedPlayerIds = JSON.parse(savedPlayersJson);
-            console.log('Найден сохраненный список игроков в localStorage:', savedPlayerIds);
-
-            // Если в текущей тренировке нет игроков или их меньше, чем в сохраненном списке,
-            // восстанавливаем список из localStorage
-            if (!currentTraining.playerIds || currentTraining.playerIds.length === 0 ||
-                (savedPlayerIds.length > currentTraining.playerIds.length)) {
-                console.log('Восстанавливаем список игроков из localStorage');
-                currentTraining.playerIds = savedPlayerIds;
-            }
-        }
-    } catch (e) {
-        console.warn('Не удалось восстановить список игроков из localStorage:', e);
-    }
+    // Код восстановления из localStorage удален, так как мы используем только Supabase
 
     console.log('Список игроков в тренировке после проверки:', currentTraining.playerIds);
     
@@ -898,32 +873,15 @@ async function loadTrainingState() {
         const originalPlayerIds = currentTraining ? [...currentTraining.playerIds] : [];
         console.log('Оригинальный список игроков в тренировке:', originalPlayerIds);
 
-        // Пытаемся восстановить список игроков из localStorage (резервная копия)
-        let savedPlayerIds = [];
-        try {
-            const savedPlayersJson = localStorage.getItem(`training_players_${trainingId}`);
-            if (savedPlayersJson) {
-                savedPlayerIds = JSON.parse(savedPlayersJson);
-                console.log('Восстановлен список игроков из localStorage:', savedPlayerIds);
-            }
-        } catch (e) {
-            console.warn('Не удалось восстановить список игроков из localStorage:', e);
-        }
+        // Код восстановления из localStorage удален, так как мы используем только Supabase
 
         // Восстанавливаем состояние тренировки
         currentTraining = state.currentTraining;
 
         // Восстанавливаем оригинальный список игроков в тренировке
-        if (currentTraining) {
-            // Приоритет: 1) оригинальный список, 2) список из localStorage, 3) текущий список
-            if (originalPlayerIds.length > 0) {
-                console.log('Восстанавливаем оригинальный список игроков в тренировке');
-                currentTraining.playerIds = originalPlayerIds;
-            } else if (savedPlayerIds.length > 0) {
-                console.log('Восстанавливаем список игроков из localStorage');
-                currentTraining.playerIds = savedPlayerIds;
-            }
-
+        if (currentTraining && originalPlayerIds.length > 0) {
+            console.log('Восстанавливаем оригинальный список игроков в тренировке');
+            currentTraining.playerIds = originalPlayerIds;
             console.log('Список игроков в тренировке после восстановления:', currentTraining.playerIds);
         }
 
