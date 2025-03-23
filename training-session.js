@@ -1566,9 +1566,118 @@ function finishGame(courtId) {
     // Удаляем время начала игры
     delete gameStartTimes[courtId];
 
-    // Спрашиваем, кто победил
-    const winner = confirm(`Победила команда ${court.name} стороны 1?`) ? 1 : 2;
+    // Показываем модальное окно с выбором победителя
+    showWinnerSelectionDialog(court, courtId);
+}
 
+// Функция для отображения диалога выбора победителя
+function showWinnerSelectionDialog(court, courtId) {
+    // Создаем модальное окно
+    const modal = document.createElement('div');
+    modal.classList.add('winner-selection-modal');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    modal.style.zIndex = '1000';
+
+    // Создаем содержимое модального окна
+    const modalContent = document.createElement('div');
+    modalContent.classList.add('winner-selection-modal-content');
+    modalContent.style.backgroundColor = '#fff';
+    modalContent.style.padding = '20px';
+    modalContent.style.borderRadius = '5px';
+    modalContent.style.maxWidth = '500px';
+    modalContent.style.width = '90%';
+    modalContent.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.3)';
+
+    // Заголовок модального окна
+    const modalHeader = document.createElement('div');
+    modalHeader.classList.add('winner-selection-modal-header');
+    modalHeader.style.marginBottom = '20px';
+    modalHeader.style.display = 'flex';
+    modalHeader.style.justifyContent = 'space-between';
+    modalHeader.style.alignItems = 'center';
+
+    const modalTitle = document.createElement('h3');
+    modalTitle.textContent = 'Кто победил?';
+    modalTitle.style.margin = '0';
+
+    const closeButton = document.createElement('span');
+    closeButton.innerHTML = '&times;';
+    closeButton.style.cursor = 'pointer';
+    closeButton.style.fontSize = '24px';
+    closeButton.style.fontWeight = 'bold';
+    closeButton.addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+
+    modalHeader.appendChild(modalTitle);
+    modalHeader.appendChild(closeButton);
+
+    // Создаем варианты выбора победителя
+    const optionsContainer = document.createElement('div');
+    optionsContainer.classList.add('winner-options-container');
+    optionsContainer.style.display = 'flex';
+    optionsContainer.style.flexDirection = 'column';
+    optionsContainer.style.gap = '15px';
+
+    // Формируем названия команд
+    const side1Names = court.side1.map(player => player.lastName).join('/');
+    const side2Names = court.side2.map(player => player.lastName).join('/');
+
+    // Создаем кнопку для стороны 1
+    const side1Button = document.createElement('button');
+    side1Button.classList.add('winner-option-button');
+    side1Button.textContent = `Сторона 1: ${side1Names}`;
+    side1Button.style.padding = '15px';
+    side1Button.style.fontSize = '16px';
+    side1Button.style.cursor = 'pointer';
+    side1Button.style.backgroundColor = '#4CAF50';
+    side1Button.style.color = 'white';
+    side1Button.style.border = 'none';
+    side1Button.style.borderRadius = '5px';
+    side1Button.addEventListener('click', () => {
+        document.body.removeChild(modal);
+        processGameResult(court, courtId, 1);
+    });
+
+    // Создаем кнопку для стороны 2
+    const side2Button = document.createElement('button');
+    side2Button.classList.add('winner-option-button');
+    side2Button.textContent = `Сторона 2: ${side2Names}`;
+    side2Button.style.padding = '15px';
+    side2Button.style.fontSize = '16px';
+    side2Button.style.cursor = 'pointer';
+    side2Button.style.backgroundColor = '#2196F3';
+    side2Button.style.color = 'white';
+    side2Button.style.border = 'none';
+    side2Button.style.borderRadius = '5px';
+    side2Button.addEventListener('click', () => {
+        document.body.removeChild(modal);
+        processGameResult(court, courtId, 2);
+    });
+
+    // Добавляем кнопки в контейнер
+    optionsContainer.appendChild(side1Button);
+    optionsContainer.appendChild(side2Button);
+
+    // Собираем модальное окно
+    modalContent.appendChild(modalHeader);
+    modalContent.appendChild(optionsContainer);
+    modal.appendChild(modalContent);
+
+    // Добавляем модальное окно в DOM
+    document.body.appendChild(modal);
+}
+
+// Функция для обработки результата игры
+function processGameResult(court, courtId, winner) {
     // Получаем победителей и проигравших
     const winners = winner === 1 ? court.side1 : court.side2;
     const losers = winner === 1 ? court.side2 : court.side1;
@@ -1634,6 +1743,21 @@ function finishGame(courtId) {
                 court.side1 = [];
             }
             break;
+    }
+
+    // Скрываем таймер
+    const timerElement = document.getElementById(`timer-${courtId}`);
+    if (timerElement) {
+        timerElement.style.display = 'none';
+    }
+
+    // Показываем кнопку "Начать" и скрываем кнопки "Отмена" и "Игра завершена"
+    const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
+    const actionsContainer = document.getElementById(`game-actions-${courtId}`);
+
+    if (startButton && actionsContainer) {
+        startButton.style.display = 'block';
+        actionsContainer.style.display = 'none';
     }
 
     // Обновляем отображение
