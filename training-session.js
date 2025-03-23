@@ -931,6 +931,41 @@ function setupAutoSave() {
     // Функция оставлена для совместимости, но автосохранение отключено
 }
 
+// Функция для сохранения состояния тренировки
+async function saveTrainingState(showNotification = false) {
+    try {
+        console.log('Сохранение состояния тренировки...');
+
+        // Сохраняем в localStorage
+        const trainingState = {
+            currentTraining,
+            courtsData,
+            queuePlayers,
+            consecutiveWins,
+            gameMode,
+            gameStartTimes: { ...gameStartTimes }
+        };
+        localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
+
+        // Сохраняем в Supabase
+        await saveTrainingStateToSupabase();
+
+        console.log('Состояние тренировки успешно сохранено');
+
+        if (showNotification) {
+            alert('Состояние тренировки успешно сохранено');
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Ошибка при сохранении состояния:', error);
+        if (showNotification) {
+            alert('Произошла ошибка при сохранении состояния тренировки');
+        }
+        return false;
+    }
+}
+
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', async function() {
     try {
@@ -971,37 +1006,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                     alert('Произошла ошибка при сохранении состояния тренировки');
                 }
             });
-        }
-
-        // Функция для сохранения состояния тренировки
-        async function saveTrainingState(showNotification = false) {
-            try {
-                // Сохраняем в localStorage
-                const trainingState = {
-                    currentTraining,
-                    courtsData,
-                    queuePlayers,
-                    consecutiveWins,
-                    gameMode,
-                    gameStartTimes: { ...gameStartTimes }
-                };
-                localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
-
-                // Сохраняем в Supabase
-                await saveTrainingStateToSupabase();
-
-                if (showNotification) {
-                    alert('Состояние тренировки успешно сохранено');
-                }
-
-                return true;
-            } catch (error) {
-                console.error('Ошибка при сохранении состояния:', error);
-                if (showNotification) {
-                    alert('Произошла ошибка при сохранении состояния тренировки');
-                }
-                return false;
-            }
         }
 
         // Добавляем обработчик для кнопки синхронизации очереди
@@ -1450,7 +1454,9 @@ function startGame(courtId) {
     }
 
     // Автоматически сохраняем состояние тренировки
-    saveTrainingState();
+    saveTrainingState().catch(error => {
+        console.error('Ошибка при сохранении состояния после начала игры:', error);
+    });
 }
 
 // Функция для отмены игры
@@ -1482,7 +1488,9 @@ function cancelGame(courtId) {
     }
 
     // Автоматически сохраняем состояние тренировки
-    saveTrainingState();
+    saveTrainingState().catch(error => {
+        console.error('Ошибка при сохранении состояния после отмены игры:', error);
+    });
 }
 
 // Функция для завершения игры
@@ -1581,7 +1589,9 @@ function finishGame(courtId) {
     renderQueue();
 
     // Автоматически сохраняем состояние тренировки
-    saveTrainingState();
+    saveTrainingState().catch(error => {
+        console.error('Ошибка при сохранении состояния после завершения игры:', error);
+    });
 }
 
 // Обработка результатов игры
