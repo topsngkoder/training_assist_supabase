@@ -34,6 +34,7 @@ const playersQueue = document.getElementById('players-queue');
 const backToMainBtn = document.getElementById('back-to-main');
 const gameModeSelect = document.getElementById('game-mode');
 const saveStateBtn = document.getElementById('save-state-btn');
+const syncQueueBtn = document.getElementById('sync-queue-btn');
 
 // Функция для создания аватара с инициалами
 function createInitialsAvatar(firstName, lastName) {
@@ -259,6 +260,9 @@ async function loadData() {
         // Инициализируем тренировку
         initTrainingSession();
 
+        // Синхронизируем очередь с игроками тренировки
+        syncQueueWithTrainingPlayers();
+
         return true;
     } catch (error) {
         console.error('Ошибка при загрузке данных:', error);
@@ -449,15 +453,73 @@ function initQueue() {
     queuePlayers.sort((a, b) => a.lastName.localeCompare(b.lastName));
 }
 
+// Функция для синхронизации списка игроков в очереди с текущим списком игроков в тренировке
+function syncQueueWithTrainingPlayers() {
+    console.log('Синхронизация очереди с игроками тренировки...');
+
+    if (!currentTraining || !currentTraining.playerIds || !Array.isArray(currentTraining.playerIds)) {
+        console.warn('Нет данных о игроках в тренировке для синхронизации');
+        return;
+    }
+
+    // Получаем список всех игроков, которые уже на кортах
+    const playersOnCourts = [];
+    courtsData.forEach(court => {
+        if (court.side1 && Array.isArray(court.side1)) {
+            court.side1.forEach(player => {
+                playersOnCourts.push(player.id);
+            });
+        }
+        if (court.side2 && Array.isArray(court.side2)) {
+            court.side2.forEach(player => {
+                playersOnCourts.push(player.id);
+            });
+        }
+    });
+
+    // Получаем список игроков, которые уже в очереди
+    const playersInQueue = queuePlayers.map(player => player.id);
+
+    // Для каждого игрока в тренировке проверяем, есть ли он на кортах или в очереди
+    currentTraining.playerIds.forEach(playerId => {
+        // Если игрок не на кортах и не в очереди, добавляем его в очередь
+        if (!playersOnCourts.includes(playerId) && !playersInQueue.includes(playerId)) {
+            // Находим игрока в общем списке игроков
+            const player = players.find(p => p.id === playerId);
+
+            if (player) {
+                // Добавляем игрока в очередь
+                queuePlayers.push({
+                    id: player.id,
+                    firstName: player.firstName,
+                    lastName: player.lastName,
+                    photo: player.photo,
+                    rating: player.rating
+                });
+                console.log(`Добавлен новый игрок в очередь: ${player.firstName} ${player.lastName}`);
+            }
+        }
+    });
+
+    // Сортируем игроков по фамилии для удобства
+    queuePlayers.sort((a, b) => a.lastName.localeCompare(b.lastName));
+
+    // Обновляем отображение очереди
+    renderQueue();
+}
+
 // Функция для сохранения состояния тренировки в Supabase
 async function saveTrainingStateToSupabase() {
     console.log('Сохранение состояния тренировки в Supabase...');
-    
+
     if (!trainingId) {
         console.error('ID тренировки не определен, сохранение невозможно');
         return false;
     }
-    
+
+    // Синхронизируем очередь с игроками тренировки перед сохранением
+    syncQueueWithTrainingPlayers();
+
     try {
         // Формируем объект с состоянием тренировки
         const trainingState = {
@@ -645,6 +707,10 @@ async function loadTrainingState() {
     
                 // Обновляем отображение
                 displayTrainingInfo();
+
+                // Синхронизируем очередь с игроками тренировки
+                syncQueueWithTrainingPlayers();
+
                 renderCourts();
                 renderQueue();
     
@@ -797,6 +863,10 @@ function loadTrainingStateFromLocalStorage() {
 
         // Обновляем отображение
         displayTrainingInfo();
+
+        // Синхронизируем очередь с игроками тренировки
+        syncQueueWithTrainingPlayers();
+
         renderCourts();
         renderQueue();
         
@@ -913,6 +983,25 @@ document.addEventListener('DOMContentLoaded', async function() {
                 } catch (error) {
                     console.error('Ошибка при сохранении состояния:', error);
                     alert('Произошла ошибка при сохранении состояния тренировки');
+                }
+            });
+        }
+
+        // Добавляем обработчик для кнопки синхронизации очереди
+        if (syncQueueBtn) {
+            syncQueueBtn.addEventListener('click', function() {
+                try {
+                    // Синхронизируем очередь с игроками тренировки
+                    syncQueueWithTrainingPlayers();
+
+                    // Обновляем отображение
+                    renderQueue();
+
+                    // Показываем уведомление
+                    alert('Очередь игроков успешно синхронизирована с игроками тренировки');
+                } catch (error) {
+                    console.error('Ошибка при синхронизации очереди:', error);
+                    alert('Произошла ошибка при синхронизации очереди игроков');
                 }
             });
         }

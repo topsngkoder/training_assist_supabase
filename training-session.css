@@ -453,6 +453,31 @@
     margin-top: 30px;
 }
 
+.queue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.sync-queue-btn {
+    background-color: #2196F3;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.sync-queue-btn:hover {
+    background-color: #1976D2;
+    transform: rotate(30deg);
+}
+
 .players-queue {
     display: flex;
     flex-wrap: wrap;
