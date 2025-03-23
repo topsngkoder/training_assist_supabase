@@ -304,7 +304,8 @@ async function loadData() {
         }
 
         // Синхронизируем очередь с игроками тренировки
-        syncQueueWithTrainingPlayers();
+        // Принудительно добавляем всех игроков из тренировки, которых нет на кортах, в очередь
+        syncQueueWithTrainingPlayers(true);
 
         return true;
     } catch (error) {
@@ -496,7 +497,8 @@ function initQueue() {
 }
 
 // Функция для синхронизации списка игроков в очереди с текущим списком игроков в тренировке
-function syncQueueWithTrainingPlayers() {
+// Параметр forceSync: если true, то все игроки из тренировки, которых нет на кортах, будут добавлены в очередь
+function syncQueueWithTrainingPlayers(forceSync = false) {
     console.log('Синхронизация очереди с игроками тренировки...');
 
     if (!currentTraining || !currentTraining.playerIds || !Array.isArray(currentTraining.playerIds)) {
@@ -527,14 +529,22 @@ function syncQueueWithTrainingPlayers() {
     const playersInQueue = queuePlayers.map(player => String(player.id));
     console.log('Игроки в очереди:', playersInQueue);
 
-    // Для каждого игрока в тренировке проверяем, есть ли он на кортах или в очереди
-    currentTraining.playerIds.forEach(playerId => {
-        const playerIdStr = String(playerId);
-        console.log(`Проверка игрока с ID: ${playerIdStr}`);
+    // Проверяем, нужно ли принудительно добавить всех игроков из тренировки в очередь
+    if (forceSync) {
+        console.log('Принудительная синхронизация: проверяем всех игроков тренировки');
 
-        // Если игрок не на кортах и не в очереди, добавляем его в очередь
-        if (!playersOnCourts.includes(playerIdStr) && !playersInQueue.includes(playerIdStr)) {
-            console.log(`Игрок ${playerIdStr} не найден ни на кортах, ни в очереди`);
+        // Получаем список игроков, которых нет ни на кортах, ни в очереди
+        const missingPlayers = currentTraining.playerIds.filter(playerId => {
+            const playerIdStr = String(playerId);
+            return !playersOnCourts.includes(playerIdStr) && !playersInQueue.includes(playerIdStr);
+        });
+
+        console.log('Игроки, отсутствующие в очереди и на кортах:', missingPlayers);
+
+        // Добавляем отсутствующих игроков в очередь
+        missingPlayers.forEach(playerId => {
+            const playerIdStr = String(playerId);
+            console.log(`Добавление отсутствующего игрока с ID: ${playerIdStr}`);
 
             // Находим игрока в общем списке игроков
             const player = players.find(p => String(p.id) === playerIdStr);
@@ -548,7 +558,7 @@ function syncQueueWithTrainingPlayers() {
                     photo: player.photo,
                     rating: player.rating
                 });
-                console.log(`Добавлен новый игрок в очередь: ${player.firstName} ${player.lastName}`);
+                console.log(`Добавлен отсутствующий игрок в очередь: ${player.firstName} ${player.lastName}`);
             } else {
                 console.warn(`Игрок с ID ${playerIdStr} не найден в общем списке игроков`);
 
@@ -564,14 +574,58 @@ function syncQueueWithTrainingPlayers() {
                             photo: playerByIndex.photo,
                             rating: playerByIndex.rating
                         });
-                        console.log(`Добавлен новый игрок в очередь по индексу: ${playerByIndex.firstName} ${playerByIndex.lastName}`);
+                        console.log(`Добавлен отсутствующий игрок в очередь по индексу: ${playerByIndex.firstName} ${playerByIndex.lastName}`);
                     }
                 }
             }
-        } else {
-            console.log(`Игрок ${playerIdStr} уже на корте или в очереди, пропускаем`);
-        }
-    });
+        });
+    } else {
+        // Стандартная синхронизация: для каждого игрока в тренировке проверяем, есть ли он на кортах или в очереди
+        currentTraining.playerIds.forEach(playerId => {
+            const playerIdStr = String(playerId);
+            console.log(`Проверка игрока с ID: ${playerIdStr}`);
+
+            // Если игрок не на кортах и не в очереди, добавляем его в очередь
+            if (!playersOnCourts.includes(playerIdStr) && !playersInQueue.includes(playerIdStr)) {
+                console.log(`Игрок ${playerIdStr} не найден ни на кортах, ни в очереди`);
+
+                // Находим игрока в общем списке игроков
+                const player = players.find(p => String(p.id) === playerIdStr);
+
+                if (player) {
+                    // Добавляем игрока в очередь
+                    queuePlayers.push({
+                        id: player.id,
+                        firstName: player.firstName,
+                        lastName: player.lastName,
+                        photo: player.photo,
+                        rating: player.rating
+                    });
+                    console.log(`Добавлен новый игрок в очередь: ${player.firstName} ${player.lastName}`);
+                } else {
+                    console.warn(`Игрок с ID ${playerIdStr} не найден в общем списке игроков`);
+
+                    // Пробуем найти по индексу
+                    const playerIndex = parseInt(playerId);
+                    if (!isNaN(playerIndex) && playerIndex >= 0 && playerIndex < players.length) {
+                        const playerByIndex = players[playerIndex];
+                        if (playerByIndex) {
+                            queuePlayers.push({
+                                id: playerByIndex.id,
+                                firstName: playerByIndex.firstName,
+                                lastName: playerByIndex.lastName,
+                                photo: playerByIndex.photo,
+                                rating: playerByIndex.rating
+                            });
+                            console.log(`Добавлен новый игрок в очередь по индексу: ${playerByIndex.firstName} ${playerByIndex.lastName}`);
+                        }
+                    }
+                }
+            } else {
+                console.log(`Игрок ${playerIdStr} уже на корте или в очереди, пропускаем`);
+            }
+        });
+    }
 
     // Сортируем игроков по фамилии для удобства
     queuePlayers.sort((a, b) => a.lastName.localeCompare(b.lastName));
@@ -593,7 +647,7 @@ async function saveTrainingStateToSupabase() {
 
     // Синхронизируем очередь с игроками тренировки перед сохранением
     // Это гарантирует, что новые игроки, добавленные в тренировку, будут добавлены в очередь
-    syncQueueWithTrainingPlayers();
+    syncQueueWithTrainingPlayers(true);
 
     try {
         // Формируем объект с состоянием тренировки
@@ -806,7 +860,8 @@ async function loadTrainingState() {
         displayTrainingInfo();
 
         // Синхронизируем очередь с игроками тренировки
-        syncQueueWithTrainingPlayers();
+        // Принудительно добавляем всех игроков из тренировки, которых нет на кортах, в очередь
+        syncQueueWithTrainingPlayers(true);
 
         renderCourts();
         renderQueue();
