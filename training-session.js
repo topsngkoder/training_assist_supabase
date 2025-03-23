@@ -226,6 +226,8 @@ async function loadData() {
             photo: player.photo
         }));
 
+        console.log('Загружено игроков из Supabase:', players.length);
+
         // Загружаем тренировки
         const { data: trainingsData, error: trainingsError } = await supabase
             .from('trainings')
@@ -240,12 +242,16 @@ async function loadData() {
 
         if (trainingPlayersError) throw trainingPlayersError;
 
+        console.log('Загружено связей тренировка-игрок из Supabase:', trainingPlayersData.length);
+
         // Преобразуем данные в формат, ожидаемый приложением
         trainings = trainingsData.map(training => {
             // Находим всех игроков для этой тренировки
             const playerIds = trainingPlayersData
                 .filter(tp => tp.training_id === training.id)
                 .map(tp => tp.player_id);
+
+            console.log(`Тренировка ID ${training.id}: найдено игроков ${playerIds.length}`);
 
             return {
                 id: training.id,
@@ -275,9 +281,21 @@ async function loadData() {
                 // Обновляем список игроков в текущей тренировке
                 const freshPlayerIds = freshTrainingPlayersData.map(tp => tp.player_id);
 
+                console.log('Получены свежие данные о игроках в тренировке:', freshPlayerIds);
+
                 if (currentTraining && Array.isArray(freshPlayerIds)) {
                     console.log('Обновляем список игроков в тренировке:', freshPlayerIds);
                     currentTraining.playerIds = freshPlayerIds;
+
+                    // Выводим информацию о каждом игроке
+                    freshPlayerIds.forEach(playerId => {
+                        const player = players.find(p => String(p.id) === String(playerId));
+                        if (player) {
+                            console.log(`Игрок в тренировке: ${player.firstName} ${player.lastName} (ID: ${player.id})`);
+                        } else {
+                            console.warn(`Игрок с ID ${playerId} не найден в общем списке игроков`);
+                        }
+                    });
                 }
             }
         } catch (updateError) {
@@ -430,30 +448,27 @@ function initQueue() {
         trainingPlayerIds.forEach(playerId => {
             console.log(`Поиск игрока с ID/индексом: ${playerId}, тип: ${typeof playerId}`);
 
-            // Сначала пробуем найти игрока по его ID
-            let player = players.find(p => p.id === playerId);
+            // Преобразуем playerId в строку для сравнения
+            const playerIdStr = String(playerId);
+
+            // Ищем игрока по ID (сравниваем как строки для большей гибкости)
+            let player = players.find(p => String(p.id) === playerIdStr);
 
             if (player) {
                 console.log(`Найден игрок по ID: ${player.firstName} ${player.lastName}`);
             } else {
                 // Если не нашли по ID, пробуем найти по индексу
-                if (typeof playerId === 'number' && playerId >= 0 && playerId < players.length) {
-                    player = players[playerId];
+                const playerIndex = parseInt(playerId);
+                if (!isNaN(playerIndex) && playerIndex >= 0 && playerIndex < players.length) {
+                    player = players[playerIndex];
                     console.log(`Найден игрок по индексу: ${player ? player.firstName + ' ' + player.lastName : 'не найден'}`);
-                } else {
-                    // Если playerId - строка, пробуем преобразовать в число и найти по индексу
-                    const playerIndex = parseInt(playerId);
-                    if (!isNaN(playerIndex) && playerIndex >= 0 && playerIndex < players.length) {
-                        player = players[playerIndex];
-                        console.log(`Найден игрок по преобразованному индексу: ${player ? player.firstName + ' ' + player.lastName : 'не найден'}`);
-                    }
                 }
             }
 
             if (player) {
                 // Проверяем, не добавлен ли уже этот игрок в очередь
-                const alreadyInQueue = queuePlayers.some(p => p.id === player.id);
-                
+                const alreadyInQueue = queuePlayers.some(p => String(p.id) === String(player.id));
+
                 if (!alreadyInQueue) {
                     queuePlayers.push({
                         id: player.id,
@@ -476,6 +491,8 @@ function initQueue() {
 
     // Сортируем игроков по фамилии для удобства
     queuePlayers.sort((a, b) => a.lastName.localeCompare(b.lastName));
+
+    console.log('Инициализация очереди завершена. Игроков в очереди:', queuePlayers.length);
 }
 
 // Функция для синхронизации списка игроков в очереди с текущим списком игроков в тренировке
@@ -487,30 +504,40 @@ function syncQueueWithTrainingPlayers() {
         return;
     }
 
+    console.log('Игроки в тренировке:', currentTraining.playerIds);
+    console.log('Доступные игроки:', players);
+
     // Получаем список всех игроков, которые уже на кортах
     const playersOnCourts = [];
     courtsData.forEach(court => {
         if (court.side1 && Array.isArray(court.side1)) {
             court.side1.forEach(player => {
-                playersOnCourts.push(player.id);
+                playersOnCourts.push(String(player.id));
             });
         }
         if (court.side2 && Array.isArray(court.side2)) {
             court.side2.forEach(player => {
-                playersOnCourts.push(player.id);
+                playersOnCourts.push(String(player.id));
             });
         }
     });
+    console.log('Игроки на кортах:', playersOnCourts);
 
     // Получаем список игроков, которые уже в очереди
-    const playersInQueue = queuePlayers.map(player => player.id);
+    const playersInQueue = queuePlayers.map(player => String(player.id));
+    console.log('Игроки в очереди:', playersInQueue);
 
     // Для каждого игрока в тренировке проверяем, есть ли он на кортах или в очереди
     currentTraining.playerIds.forEach(playerId => {
+        const playerIdStr = String(playerId);
+        console.log(`Проверка игрока с ID: ${playerIdStr}`);
+
         // Если игрок не на кортах и не в очереди, добавляем его в очередь
-        if (!playersOnCourts.includes(playerId) && !playersInQueue.includes(playerId)) {
+        if (!playersOnCourts.includes(playerIdStr) && !playersInQueue.includes(playerIdStr)) {
+            console.log(`Игрок ${playerIdStr} не найден ни на кортах, ни в очереди`);
+
             // Находим игрока в общем списке игроков
-            const player = players.find(p => p.id === playerId);
+            const player = players.find(p => String(p.id) === playerIdStr);
 
             if (player) {
                 // Добавляем игрока в очередь
@@ -522,12 +549,34 @@ function syncQueueWithTrainingPlayers() {
                     rating: player.rating
                 });
                 console.log(`Добавлен новый игрок в очередь: ${player.firstName} ${player.lastName}`);
+            } else {
+                console.warn(`Игрок с ID ${playerIdStr} не найден в общем списке игроков`);
+
+                // Пробуем найти по индексу
+                const playerIndex = parseInt(playerId);
+                if (!isNaN(playerIndex) && playerIndex >= 0 && playerIndex < players.length) {
+                    const playerByIndex = players[playerIndex];
+                    if (playerByIndex) {
+                        queuePlayers.push({
+                            id: playerByIndex.id,
+                            firstName: playerByIndex.firstName,
+                            lastName: playerByIndex.lastName,
+                            photo: playerByIndex.photo,
+                            rating: playerByIndex.rating
+                        });
+                        console.log(`Добавлен новый игрок в очередь по индексу: ${playerByIndex.firstName} ${playerByIndex.lastName}`);
+                    }
+                }
             }
+        } else {
+            console.log(`Игрок ${playerIdStr} уже на корте или в очереди, пропускаем`);
         }
     });
 
     // Сортируем игроков по фамилии для удобства
     queuePlayers.sort((a, b) => a.lastName.localeCompare(b.lastName));
+
+    console.log('Синхронизация очереди завершена. Игроков в очереди:', queuePlayers.length);
 
     // Обновляем отображение очереди
     renderQueue();
