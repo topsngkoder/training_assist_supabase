@@ -307,6 +307,16 @@ async function loadData() {
         // Принудительно добавляем всех игроков из тренировки, которых нет на кортах, в очередь
         syncQueueWithTrainingPlayers(true);
 
+        // Сохраняем оригинальный список игроков в тренировке в localStorage для восстановления в случае проблем
+        if (currentTraining && currentTraining.playerIds && currentTraining.playerIds.length > 0) {
+            try {
+                localStorage.setItem(`training_players_${trainingId}`, JSON.stringify(currentTraining.playerIds));
+                console.log('Сохранен оригинальный список игроков в тренировке в localStorage:', currentTraining.playerIds);
+            } catch (e) {
+                console.warn('Не удалось сохранить список игроков в localStorage:', e);
+            }
+        }
+
         return true;
     } catch (error) {
         console.error('Ошибка при загрузке данных:', error);
@@ -373,7 +383,7 @@ function initTrainingSession() {
     
     // Находим тренировку по ID
     currentTraining = trainings.find(t => t.id === trainingId);
-    
+
     if (!currentTraining) {
         alert('Тренировка не найдена');
         window.location.href = 'index.html';
@@ -381,6 +391,27 @@ function initTrainingSession() {
     }
 
     console.log('Найдена тренировка:', currentTraining);
+
+    // Проверяем, есть ли сохраненный список игроков в localStorage
+    try {
+        const savedPlayersJson = localStorage.getItem(`training_players_${trainingId}`);
+        if (savedPlayersJson) {
+            const savedPlayerIds = JSON.parse(savedPlayersJson);
+            console.log('Найден сохраненный список игроков в localStorage:', savedPlayerIds);
+
+            // Если в текущей тренировке нет игроков или их меньше, чем в сохраненном списке,
+            // восстанавливаем список из localStorage
+            if (!currentTraining.playerIds || currentTraining.playerIds.length === 0 ||
+                (savedPlayerIds.length > currentTraining.playerIds.length)) {
+                console.log('Восстанавливаем список игроков из localStorage');
+                currentTraining.playerIds = savedPlayerIds;
+            }
+        }
+    } catch (e) {
+        console.warn('Не удалось восстановить список игроков из localStorage:', e);
+    }
+
+    console.log('Список игроков в тренировке после проверки:', currentTraining.playerIds);
     
     // Отображаем информацию о тренировке
     displayTrainingInfo();
@@ -650,6 +681,35 @@ async function saveTrainingStateToSupabase() {
     syncQueueWithTrainingPlayers(true);
 
     try {
+        // Проверяем, что у нас есть актуальный список игроков в тренировке
+        if (!currentTraining.playerIds || currentTraining.playerIds.length === 0) {
+            console.warn('Список игроков в тренировке пуст или не определен. Пытаемся восстановить из базы данных...');
+
+            try {
+                // Загружаем связи между тренировками и игроками, чтобы получить актуальные данные
+                const { data: freshTrainingPlayersData, error: freshTrainingPlayersError } = await supabase
+                    .from('training_players')
+                    .select('*')
+                    .eq('training_id', trainingId);
+
+                if (!freshTrainingPlayersError && freshTrainingPlayersData && freshTrainingPlayersData.length > 0) {
+                    // Обновляем список игроков в текущей тренировке
+                    const freshPlayerIds = freshTrainingPlayersData.map(tp => tp.player_id);
+
+                    console.log('Получены свежие данные о игроках в тренировке:', freshPlayerIds);
+
+                    if (Array.isArray(freshPlayerIds) && freshPlayerIds.length > 0) {
+                        console.log('Обновляем список игроков в тренировке перед сохранением:', freshPlayerIds);
+                        currentTraining.playerIds = freshPlayerIds;
+                    }
+                }
+            } catch (updateError) {
+                console.warn('Ошибка при обновлении списка игроков в тренировке перед сохранением:', updateError);
+            }
+        }
+
+        console.log('Список игроков в тренировке перед сохранением:', currentTraining.playerIds);
+
         // Формируем объект с состоянием тренировки
         const trainingState = {
             currentTraining,
@@ -834,8 +894,39 @@ async function loadTrainingState() {
         // Восстанавливаем состояние тренировки из Supabase
         const state = data.state;
 
+        // Сохраняем оригинальный список игроков в тренировке
+        const originalPlayerIds = currentTraining ? [...currentTraining.playerIds] : [];
+        console.log('Оригинальный список игроков в тренировке:', originalPlayerIds);
+
+        // Пытаемся восстановить список игроков из localStorage (резервная копия)
+        let savedPlayerIds = [];
+        try {
+            const savedPlayersJson = localStorage.getItem(`training_players_${trainingId}`);
+            if (savedPlayersJson) {
+                savedPlayerIds = JSON.parse(savedPlayersJson);
+                console.log('Восстановлен список игроков из localStorage:', savedPlayerIds);
+            }
+        } catch (e) {
+            console.warn('Не удалось восстановить список игроков из localStorage:', e);
+        }
+
         // Восстанавливаем состояние тренировки
         currentTraining = state.currentTraining;
+
+        // Восстанавливаем оригинальный список игроков в тренировке
+        if (currentTraining) {
+            // Приоритет: 1) оригинальный список, 2) список из localStorage, 3) текущий список
+            if (originalPlayerIds.length > 0) {
+                console.log('Восстанавливаем оригинальный список игроков в тренировке');
+                currentTraining.playerIds = originalPlayerIds;
+            } else if (savedPlayerIds.length > 0) {
+                console.log('Восстанавливаем список игроков из localStorage');
+                currentTraining.playerIds = savedPlayerIds;
+            }
+
+            console.log('Список игроков в тренировке после восстановления:', currentTraining.playerIds);
+        }
+
         courtsData = state.courtsData || [];
         queuePlayers = state.queuePlayers || [];
         consecutiveWins = state.consecutiveWins || {};
