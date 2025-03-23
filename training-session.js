@@ -681,14 +681,49 @@ async function loadTrainingState() {
             if (error.code !== 'PGRST116') {
                 throw new Error('Загрузка тренировки невозможна, проверьте состояние интернет соединения.');
             } else {
-                // Если данных просто нет в базе
-                throw new Error('Состояние тренировки не найдено в базе данных.');
+                // Если данных просто нет в базе, создаем новое состояние
+                console.log('Состояние тренировки не найдено в базе данных. Создаем новое состояние.');
+
+                // Инициализируем тренировку
+                initTrainingSession();
+
+                // Инициализируем корты (пустые)
+                initCourts();
+
+                // Инициализируем очередь игроков (все игроки тренировки)
+                initQueue();
+
+                // Отображаем корты и очередь
+                renderCourts();
+                renderQueue();
+
+                // Сохраняем начальное состояние в Supabase
+                await saveTrainingState();
+
+                return true;
             }
         }
 
         if (!data || !data.state) {
-            console.error('Данные состояния в Supabase отсутствуют или пусты');
-            throw new Error('Состояние тренировки не найдено в базе данных.');
+            console.log('Данные состояния в Supabase отсутствуют или пусты. Создаем новое состояние тренировки.');
+
+            // Инициализируем тренировку
+            initTrainingSession();
+
+            // Инициализируем корты (пустые)
+            initCourts();
+
+            // Инициализируем очередь игроков (все игроки тренировки)
+            initQueue();
+
+            // Отображаем корты и очередь
+            renderCourts();
+            renderQueue();
+
+            // Сохраняем начальное состояние в Supabase
+            await saveTrainingState();
+
+            return true;
         }
 
         console.log('Данные состояния получены из Supabase');
@@ -812,9 +847,20 @@ async function saveTrainingState(showNotification = false) {
         return true;
     } catch (error) {
         console.error('Ошибка при сохранении состояния:', error);
-        if (showNotification) {
-            alert('Произошла ошибка при сохранении состояния тренировки: ' + error.message);
+
+        // Проверяем, есть ли проблемы с сетью
+        if (!navigator.onLine) {
+            const errorMessage = 'Отсутствует подключение к интернету. Состояние тренировки не сохранено.';
+            console.error(errorMessage);
+            if (showNotification) {
+                alert(errorMessage);
+            }
+        } else {
+            if (showNotification) {
+                alert('Произошла ошибка при сохранении состояния тренировки: ' + error.message);
+            }
         }
+
         return false;
     }
 }
