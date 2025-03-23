@@ -965,26 +965,43 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (saveStateBtn) {
             saveStateBtn.addEventListener('click', async function() {
                 try {
-                    // Сохраняем в localStorage
-                    const trainingState = {
-                        currentTraining,
-                        courtsData,
-                        queuePlayers,
-                        consecutiveWins,
-                        gameMode,
-                        gameStartTimes: { ...gameStartTimes }
-                    };
-                    localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
-
-                    // Сохраняем в Supabase
-                    await saveTrainingStateToSupabase();
-
-                    alert('Состояние тренировки успешно сохранено');
+                    await saveTrainingState(true); // true - показывать уведомление
                 } catch (error) {
                     console.error('Ошибка при сохранении состояния:', error);
                     alert('Произошла ошибка при сохранении состояния тренировки');
                 }
             });
+        }
+
+        // Функция для сохранения состояния тренировки
+        async function saveTrainingState(showNotification = false) {
+            try {
+                // Сохраняем в localStorage
+                const trainingState = {
+                    currentTraining,
+                    courtsData,
+                    queuePlayers,
+                    consecutiveWins,
+                    gameMode,
+                    gameStartTimes: { ...gameStartTimes }
+                };
+                localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
+
+                // Сохраняем в Supabase
+                await saveTrainingStateToSupabase();
+
+                if (showNotification) {
+                    alert('Состояние тренировки успешно сохранено');
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Ошибка при сохранении состояния:', error);
+                if (showNotification) {
+                    alert('Произошла ошибка при сохранении состояния тренировки');
+                }
+                return false;
+            }
         }
 
         // Добавляем обработчик для кнопки синхронизации очереди
@@ -1431,6 +1448,9 @@ function startGame(courtId) {
         startButton.style.display = 'none';
         actionsContainer.style.display = 'flex';
     }
+
+    // Автоматически сохраняем состояние тренировки
+    saveTrainingState();
 }
 
 // Функция для отмены игры
@@ -1460,6 +1480,9 @@ function cancelGame(courtId) {
         startButton.style.display = 'block';
         actionsContainer.style.display = 'none';
     }
+
+    // Автоматически сохраняем состояние тренировки
+    saveTrainingState();
 }
 
 // Функция для завершения игры
@@ -1556,6 +1579,9 @@ function finishGame(courtId) {
     // Обновляем отображение
     renderCourts();
     renderQueue();
+
+    // Автоматически сохраняем состояние тренировки
+    saveTrainingState();
 }
 
 // Обработка результатов игры
