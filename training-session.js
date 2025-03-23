@@ -644,7 +644,7 @@ async function saveTrainingStateToSupabase() {
 // Функция для загрузки состояния тренировки из Supabase
 async function loadTrainingState() {
     console.log('Загрузка состояния тренировки...');
-    
+
     // Показываем индикатор загрузки
     showLoadingIndicator();
 
@@ -654,210 +654,47 @@ async function loadTrainingState() {
             console.error('Клиент Supabase не инициализирован правильно');
             throw new Error('Клиент Supabase не инициализирован правильно');
         }
-        
+
         console.log('Попытка загрузки состояния из Supabase для тренировки ID:', trainingId);
-        
-        try {
-            // Пытаемся загрузить состояние из Supabase
-            const { data, error } = await supabase
-                .from('training_states')
-                .select('state')
-                .eq('training_id', trainingId)
-                .single();
-    
-            if (error) {
-                // Проверяем, связана ли ошибка с RLS
-                if (error.message && (
-                    error.message.includes('permission denied') || 
-                    error.message.includes('RLS') ||
-                    error.message.includes('policy')
-                )) {
-                    console.warn('Ошибка доступа к таблице training_states (RLS):', error.message);
-                    console.log('Загрузка из Supabase пропущена из-за ограничений RLS, используем localStorage');
-                    return loadTrainingStateFromLocalStorage();
-                }
-                
-                console.warn('Ошибка при загрузке состояния из Supabase:', error);
-                
-                // Если ошибка не связана с отсутствием данных, логируем её
-                if (error.code !== 'PGRST116') {
-                    console.error('Критическая ошибка при загрузке состояния из Supabase:', error);
-                }
-    
-                // Проверяем наличие данных в localStorage
-                console.log('Проверка наличия данных в localStorage...');
-                const hasLocalData = localStorage.getItem(`training_state_${trainingId}`) !== null;
-                
-                if (hasLocalData) {
-                    console.log('Найдены данные в localStorage, загружаем их...');
-                    return loadTrainingStateFromLocalStorage();
-                } else {
-                    console.log('Данные в localStorage не найдены, инициализируем новую тренировку');
-                    // Если данных нет ни в Supabase, ни в localStorage, инициализируем новую тренировку
-                    initCourts();
-                    initQueue();
-                    displayTrainingInfo();
-                    renderCourts();
-                    renderQueue();
-                    return true;
-                }
-            }
-    
-            if (data && data.state) {
-                console.log('Данные состояния получены из Supabase');
-                
-                // Восстанавливаем состояние тренировки из Supabase
-                const state = data.state;
-    
-                // Восстанавливаем состояние тренировки
-                currentTraining = state.currentTraining;
-                courtsData = state.courtsData || [];
-                queuePlayers = state.queuePlayers || [];
-                consecutiveWins = state.consecutiveWins || {};
-                gameMode = state.gameMode || 'play-once';
-    
-                // Устанавливаем выбранный режим игры в селекте
-                if (gameModeSelect) {
-                    gameModeSelect.value = gameMode;
-                }
-    
-                // Сохраняем информацию о начатых играх
-                const activeGames = {};
-                if (state.gameStartTimes) {
-                    Object.keys(state.gameStartTimes).forEach(courtId => {
-                        // Сохраняем время начала игры
-                        gameStartTimes[parseInt(courtId)] = state.gameStartTimes[courtId];
-                        activeGames[parseInt(courtId)] = true;
-                    });
-                }
-    
-                // Обновляем отображение
-                displayTrainingInfo();
 
-                // Синхронизируем очередь с игроками тренировки
-                syncQueueWithTrainingPlayers();
+        // Пытаемся загрузить состояние из Supabase
+        const { data, error } = await supabase
+            .from('training_states')
+            .select('state')
+            .eq('training_id', trainingId)
+            .single();
 
-                renderCourts();
-                renderQueue();
-    
-                // Восстанавливаем таймеры для активных игр после рендеринга кортов
-                if (Object.keys(activeGames).length > 0) {
-                    // Небольшая задержка, чтобы DOM успел обновиться
-                    setTimeout(() => {
-                        Object.keys(activeGames).forEach(courtId => {
-                            courtId = parseInt(courtId);
-    
-                            // Запускаем таймер заново
-                            const timerElement = document.getElementById(`timer-${courtId}`);
-                            if (timerElement) {
-                                timerElement.style.display = 'block';
-    
-                                // Запускаем таймер
-                                gameTimers[courtId] = setInterval(() => {
-                                    updateTimer(courtId);
-                                }, 1000);
-    
-                                // Сразу обновляем таймер
-                                updateTimer(courtId);
-    
-                                // Скрываем кнопку "Начать" и показываем кнопки "Отмена" и "Игра завершена"
-                                const startButton = document.querySelector(`.start-game-btn[data-court="${courtId}"]`);
-                                const actionsContainer = document.getElementById(`game-actions-${courtId}`);
-    
-                                if (startButton && actionsContainer) {
-                                    startButton.style.display = 'none';
-                                    actionsContainer.style.display = 'flex';
-                                }
-                            }
-                        });
-                    }, 100);
-                }
-    
-                console.log('Состояние тренировки успешно загружено из Supabase');
-                return true;
-            } else {
-                console.log('Данные состояния в Supabase отсутствуют или пусты');
-                
-                // Проверяем наличие данных в localStorage
-                const hasLocalData = localStorage.getItem(`training_state_${trainingId}`) !== null;
-                
-                if (hasLocalData) {
-                    console.log('Найдены данные в localStorage, загружаем их...');
-                    return loadTrainingStateFromLocalStorage();
-                } else {
-                    console.log('Данные в localStorage не найдены, инициализируем новую тренировку');
-                    // Если данных нет ни в Supabase, ни в localStorage, инициализируем новую тренировку
-                    initCourts();
-                    initQueue();
-                    displayTrainingInfo();
-                    renderCourts();
-                    renderQueue();
-                    return true;
-                }
-            }
-        } catch (innerError) {
+        if (error) {
             // Проверяем, связана ли ошибка с RLS
-            if (innerError.message && (
-                innerError.message.includes('permission denied') || 
-                innerError.message.includes('RLS') ||
-                innerError.message.includes('policy')
+            if (error.message && (
+                error.message.includes('permission denied') ||
+                error.message.includes('RLS') ||
+                error.message.includes('policy')
             )) {
-                console.warn('Ошибка доступа к таблице training_states (RLS):', innerError.message);
-                console.log('Загрузка из Supabase пропущена из-за ограничений RLS, используем localStorage');
-                return loadTrainingStateFromLocalStorage();
+                console.error('Ошибка доступа к таблице training_states (RLS):', error.message);
+                throw new Error('Загрузка тренировки невозможна, проверьте состояние интернет соединения.');
             }
-            
-            throw innerError;
+
+            console.error('Ошибка при загрузке состояния из Supabase:', error);
+
+            // Если ошибка не связана с отсутствием данных
+            if (error.code !== 'PGRST116') {
+                throw new Error('Загрузка тренировки невозможна, проверьте состояние интернет соединения.');
+            } else {
+                // Если данных просто нет в базе
+                throw new Error('Состояние тренировки не найдено в базе данных.');
+            }
         }
-    } catch (error) {
-        console.error('Ошибка при загрузке состояния тренировки:', error);
 
-        // Пытаемся загрузить из localStorage как резервную копию
-        console.log('Попытка загрузки из localStorage после ошибки...');
-        const localStateLoaded = loadTrainingStateFromLocalStorage();
-        
-        if (!localStateLoaded) {
-            console.log('Данные в localStorage не найдены, инициализируем новую тренировку');
-            // Если данных нет ни в Supabase, ни в localStorage, инициализируем новую тренировку
-            initCourts();
-            initQueue();
-            displayTrainingInfo();
-            renderCourts();
-            renderQueue();
-            return true;
+        if (!data || !data.state) {
+            console.error('Данные состояния в Supabase отсутствуют или пусты');
+            throw new Error('Состояние тренировки не найдено в базе данных.');
         }
-        
-        return localStateLoaded;
-    } finally {
-        // Скрываем индикатор загрузки
-        hideLoadingIndicator();
-    }
-}
 
-// Функция для загрузки состояния тренировки из localStorage (резервная копия)
-function loadTrainingStateFromLocalStorage() {
-    console.log('Попытка загрузки состояния из localStorage для тренировки ID:', trainingId);
-    
-    // Получаем сохраненное состояние из localStorage
-    const savedState = localStorage.getItem(`training_state_${trainingId}`);
+        console.log('Данные состояния получены из Supabase');
 
-    if (!savedState) {
-        console.log('Состояние в localStorage не найдено');
-        return false;
-    }
-
-    try {
-        console.log('Состояние в localStorage найдено, парсим данные...');
-        
-        // Парсим сохраненное состояние
-        const state = JSON.parse(savedState);
-        
-        if (!state || !state.currentTraining) {
-            console.warn('Некорректные данные в localStorage:', state);
-            return false;
-        }
-        
-        console.log('Данные из localStorage успешно распарсены');
+        // Восстанавливаем состояние тренировки из Supabase
+        const state = data.state;
 
         // Восстанавливаем состояние тренировки
         currentTraining = state.currentTraining;
@@ -870,11 +707,6 @@ function loadTrainingStateFromLocalStorage() {
         if (gameModeSelect) {
             gameModeSelect.value = gameMode;
         }
-        
-        console.log('Восстановлены основные данные тренировки');
-        console.log('Текущая тренировка:', currentTraining);
-        console.log('Корты:', courtsData);
-        console.log('Очередь игроков:', queuePlayers);
 
         // Сохраняем информацию о начатых играх
         const activeGames = {};
@@ -884,7 +716,6 @@ function loadTrainingStateFromLocalStorage() {
                 gameStartTimes[parseInt(courtId)] = state.gameStartTimes[courtId];
                 activeGames[parseInt(courtId)] = true;
             });
-            console.log('Восстановлены данные о начатых играх:', activeGames);
         }
 
         // Обновляем отображение
@@ -895,18 +726,13 @@ function loadTrainingStateFromLocalStorage() {
 
         renderCourts();
         renderQueue();
-        
-        console.log('Отображение обновлено');
 
         // Восстанавливаем таймеры для активных игр после рендеринга кортов
         if (Object.keys(activeGames).length > 0) {
-            console.log('Восстанавливаем таймеры для активных игр...');
-            
             // Небольшая задержка, чтобы DOM успел обновиться
             setTimeout(() => {
                 Object.keys(activeGames).forEach(courtId => {
                     courtId = parseInt(courtId);
-                    console.log(`Восстанавливаем таймер для корта ${courtId}`);
 
                     // Запускаем таймер заново
                     const timerElement = document.getElementById(`timer-${courtId}`);
@@ -929,27 +755,31 @@ function loadTrainingStateFromLocalStorage() {
                             startButton.style.display = 'none';
                             actionsContainer.style.display = 'flex';
                         }
-                        
-                        console.log(`Таймер для корта ${courtId} восстановлен`);
-                    } else {
-                        console.warn(`Элемент таймера для корта ${courtId} не найден`);
                     }
                 });
             }, 100);
         }
 
-        console.log('Состояние тренировки успешно загружено из localStorage');
+        console.log('Состояние тренировки успешно загружено из Supabase');
         return true;
     } catch (error) {
-        console.error('Ошибка при загрузке состояния тренировки из localStorage:', error);
-        
-        // Удаляем некорректные данные из localStorage
-        localStorage.removeItem(`training_state_${trainingId}`);
-        console.log('Некорректные данные удалены из localStorage');
-        
+        console.error('Ошибка при загрузке состояния тренировки:', error);
+
+        // Показываем сообщение об ошибке
+        alert(error.message || 'Загрузка тренировки невозможна, проверьте состояние интернет соединения.');
+
+        // Перенаправляем на главную страницу
+        window.location.href = 'index.html';
+
         return false;
+    } finally {
+        // Скрываем индикатор загрузки
+        hideLoadingIndicator();
     }
 }
+
+// Функция для загрузки состояния тренировки из localStorage удалена,
+// так как теперь мы загружаем состояние только из Supabase
 
 // Функция для периодического сохранения состояния (отключена)
 function setupAutoSave() {
@@ -966,19 +796,12 @@ async function saveTrainingState(showNotification = false) {
         // Это гарантирует, что новые игроки, добавленные в тренировку, будут добавлены в очередь
         syncQueueWithTrainingPlayers();
 
-        // Сохраняем в localStorage
-        const trainingState = {
-            currentTraining,
-            courtsData,
-            queuePlayers,
-            consecutiveWins,
-            gameMode,
-            gameStartTimes: { ...gameStartTimes }
-        };
-        localStorage.setItem(`training_state_${trainingId}`, JSON.stringify(trainingState));
-
         // Сохраняем в Supabase
-        await saveTrainingStateToSupabase();
+        const result = await saveTrainingStateToSupabase();
+
+        if (!result) {
+            throw new Error('Не удалось сохранить состояние тренировки в базе данных');
+        }
 
         console.log('Состояние тренировки успешно сохранено');
 
@@ -990,7 +813,7 @@ async function saveTrainingState(showNotification = false) {
     } catch (error) {
         console.error('Ошибка при сохранении состояния:', error);
         if (showNotification) {
-            alert('Произошла ошибка при сохранении состояния тренировки');
+            alert('Произошла ошибка при сохранении состояния тренировки: ' + error.message);
         }
         return false;
     }
