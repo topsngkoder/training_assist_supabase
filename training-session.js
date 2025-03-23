@@ -260,6 +260,31 @@ async function loadData() {
         // Инициализируем тренировку
         initTrainingSession();
 
+        // Обновляем список игроков в тренировке из Supabase
+        // Это нужно для случая, когда тренировка была отредактирована в другом месте
+        try {
+            console.log('Обновление списка игроков в тренировке из Supabase...');
+
+            // Загружаем связи между тренировками и игроками еще раз, чтобы получить актуальные данные
+            const { data: freshTrainingPlayersData, error: freshTrainingPlayersError } = await supabase
+                .from('training_players')
+                .select('*')
+                .eq('training_id', trainingId);
+
+            if (!freshTrainingPlayersError && freshTrainingPlayersData) {
+                // Обновляем список игроков в текущей тренировке
+                const freshPlayerIds = freshTrainingPlayersData.map(tp => tp.player_id);
+
+                if (currentTraining && Array.isArray(freshPlayerIds)) {
+                    console.log('Обновляем список игроков в тренировке:', freshPlayerIds);
+                    currentTraining.playerIds = freshPlayerIds;
+                }
+            }
+        } catch (updateError) {
+            console.warn('Ошибка при обновлении списка игроков в тренировке:', updateError);
+            // Продолжаем работу с имеющимися данными
+        }
+
         // Синхронизируем очередь с игроками тренировки
         syncQueueWithTrainingPlayers();
 
@@ -518,6 +543,7 @@ async function saveTrainingStateToSupabase() {
     }
 
     // Синхронизируем очередь с игроками тренировки перед сохранением
+    // Это гарантирует, что новые игроки, добавленные в тренировку, будут добавлены в очередь
     syncQueueWithTrainingPlayers();
 
     try {
@@ -935,6 +961,10 @@ function setupAutoSave() {
 async function saveTrainingState(showNotification = false) {
     try {
         console.log('Сохранение состояния тренировки...');
+
+        // Перед сохранением синхронизируем очередь с игроками тренировки
+        // Это гарантирует, что новые игроки, добавленные в тренировку, будут добавлены в очередь
+        syncQueueWithTrainingPlayers();
 
         // Сохраняем в localStorage
         const trainingState = {
